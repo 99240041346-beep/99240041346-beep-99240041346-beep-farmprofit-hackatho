@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Weather & Farming Alerts{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">SMART FARMING</p><h1>Weather & Farming Alerts</h1><p>Turn live weather conditions into practical farm planning signals.</p></div></section>
+<form class="search-bar" method="get"><input name="location" value="{{ location }}" placeholder="Enter village, town or city"><button class="btn primary">Check Weather</button></form>
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+{% if weather %}
+<div class="stats-grid weather-stats"><div class="stat-card"><span>🌡️ Temperature</span><strong>{{ weather.current.temperature_2m }}°C</strong></div><div class="stat-card"><span>💧 Humidity</span><strong>{{ weather.current.relative_humidity_2m }}%</strong></div><div class="stat-card"><span>🌧️ Rain</span><strong>{{ weather.current.precipitation }} mm</strong></div><div class="stat-card"><span>💨 Wind</span><strong>{{ weather.current.wind_speed_10m }} km/h</strong></div></div>
+<div class="panel"><div class="panel-head"><div><h2>7-day forecast</h2><p>{{ weather.place.name }}, {{ weather.place.country }}</p></div></div><div class="forecast-grid">{% for i in range(weather.daily.time|length) %}<div class="forecast-card"><b>{{ weather.daily.time[i] }}</b><span>🌦️</span><strong>{{ weather.daily.temperature_2m_max[i] }}° / {{ weather.daily.temperature_2m_min[i] }}°C</strong><small>Rain chance: {{ weather.daily.precipitation_probability_max[i] }}%</small></div>{% endfor %}</div></div>
+<div class="alert-banner"><strong>🌾 Farming action</strong><span>Use rainfall probability and crop stage together before scheduling irrigation, spraying or harvesting.</span></div>
+{% endif %}
+{% endblock %}
