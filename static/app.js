@@ -151,4 +151,125 @@
       ctx.fillText(d.crop, x + barW / 2, height - 10);
     });
   }
+  // Manual farm location + soil-aware irrigation
+  const locationInput = document.getElementById("farmLocationInput");
+  const locationSearch = document.getElementById("farmLocationSearch");
+  const locationResults = document.getElementById("locationResults");
+  const selectedLocation = document.getElementById("selectedFarmLocation");
+  const irrigationBtn = document.getElementById("checkIrrigation");
+  const irrigationStatus = document.getElementById("irrigationStatus");
+  const irrigationResult = document.getElementById("irrigationResult");
+  let selectedFarm = null;
+
+  function locationLabel(place) {
+    return [place.name, place.admin2 || place.admin1, place.country].filter(Boolean).join(", ");
+  }
+
+  function renderLocationResults(results) {
+    if (!locationResults) return;
+    locationResults.innerHTML = "";
+    if (!results.length) {
+      locationResults.hidden = false;
+      locationResults.innerHTML = '<div class="location-empty">No matching places found. Try a nearby town or district.</div>';
+      return;
+    }
+    results.forEach((place) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "location-option";
+      button.innerHTML = "<strong></strong><small></small>";
+      button.querySelector("strong").textContent = place.name || "Selected place";
+      button.querySelector("small").textContent = [place.admin2 || place.admin1, place.country].filter(Boolean).join(" • ");
+      button.addEventListener("click", () => selectFarmLocation(place));
+      locationResults.appendChild(button);
+    });
+    locationResults.hidden = false;
+  }
+
+  function selectFarmLocation(place) {
+    selectedFarm = place;
+    if (locationInput) locationInput.value = locationLabel(place);
+    if (selectedLocation) selectedLocation.textContent = "✓ " + locationLabel(place);
+    if (locationResults) locationResults.hidden = true;
+    localStorage.setItem("agriwise-farm-location", JSON.stringify(place));
+    if (irrigationStatus) irrigationStatus.textContent = "Location selected. Choose soil and crop, then check irrigation.";
+  }
+
+  async function searchFarmLocation() {
+    const q = locationInput ? locationInput.value.trim() : "";
+    if (q.length < 2) {
+      if (irrigationStatus) irrigationStatus.textContent = "Enter at least 2 characters for the farm location.";
+      return;
+    }
+    if (locationSearch) { locationSearch.disabled = true; locationSearch.textContent = "Searching…"; }
+    try {
+      const response = await fetch("/api/location-search?q=" + encodeURIComponent(q));
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Location search failed");
+      renderLocationResults(data.results || []);
+      if (irrigationStatus) irrigationStatus.textContent = data.results && data.results.length ? "Select the correct place from the list." : (data.error || "No location found.");
+    } catch (error) {
+      if (irrigationStatus) irrigationStatus.textContent = "Location search failed. Try the town or district name again.";
+      if (locationResults) { locationResults.hidden = false; locationResults.innerHTML = '<div class="location-empty">Location search is temporarily unavailable.</div>'; }
+    } finally {
+      if (locationSearch) { locationSearch.disabled = false; locationSearch.textContent = "Search location"; }
+    }
+  }
+
+  async function checkIrrigation() {
+    if (!selectedFarm) {
+      if (irrigationStatus) irrigationStatus.textContent = "Select your farm location first.";
+      return;
+    }
+    const crop = document.getElementById("irrigationCrop")?.value || "Rice";
+    const soil = document.getElementById("irrigationSoil")?.value || "Loamy";
+    const area = Math.max(Number(document.getElementById("irrigationArea")?.value || 1), 0.1);
+    if (irrigationBtn) { irrigationBtn.disabled = true; irrigationBtn.textContent = "Calculating…"; }
+    if (irrigationStatus) irrigationStatus.textContent = "Combining forecast, crop and soil characteristics…";
+    try {
+      const params = new URLSearchParams({
+        lat: selectedFarm.latitude, lon: selectedFarm.longitude,
+        name: selectedFarm.name || "Selected farm", crop, soil, area
+      });
+      const response = await fetch("/api/irrigation?" + params.toString());
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Irrigation calculation failed");
+      const a = data.irrigation;
+      if (irrigationResult) {
+        irrigationResult.hidden = false;
+        irrigationResult.innerHTML = `
+          <div class="irrigation-main">
+            <div><span class="irrigation-badge">${a.action}</span><h3>${a.timing}</h3><p>${a.soil_note}</p></div>
+            <div class="water-number"><small>Estimated water</small><strong>${Number(a.estimated_total_litres).toLocaleString("en-IN")} L</strong><span>for ${area} acres</span></div>
+          </div>
+          <div class="irrigation-stats">
+            <div><small>Per acre</small><b>${Number(a.estimated_litres_per_acre).toLocaleString("en-IN")} L</b></div>
+            <div><small>Water need</small><b>${a.estimated_need_mm} mm</b></div>
+            <div><small>Rain next 24h</small><b>${a.rain_24h_mm} mm</b></div>
+            <div><small>Rain probability</small><b>${a.rain_probability_percent}%</b></div>
+            <div><small>Soil holding</small><b>${a.soil_water_holding}</b></div>
+            <div><small>Temperature</small><b>${a.temperature_c}°C</b></div>
+          </div>
+          <div class="irrigation-method"><strong>Recommended method:</strong> ${a.irrigation_method} · <strong>Typical interval:</strong> ${a.typical_interval}</div>
+          <div class="irrigation-disclaimer">${a.method} Adjust using field soil moisture, crop growth stage and local agronomist guidance.</div>`;
+      }
+      if (irrigationStatus) irrigationStatus.textContent = "Irrigation plan updated for " + locationLabel(selectedFarm) + ".";
+    } catch (error) {
+      if (irrigationStatus) irrigationStatus.textContent = error.message || "Could not calculate irrigation.";
+    } finally {
+      if (irrigationBtn) { irrigationBtn.disabled = false; irrigationBtn.textContent = "Check irrigation"; }
+    }
+  }
+
+  if (locationSearch) locationSearch.addEventListener("click", searchFarmLocation);
+  if (locationInput) locationInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); searchFarmLocation(); }
+  });
+  if (irrigationBtn) irrigationBtn.addEventListener("click", checkIrrigation);
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("agriwise-farm-location") || "null");
+    if (saved && saved.latitude && saved.longitude) selectFarmLocation(saved);
+  } catch (_) {}
+
 })();
