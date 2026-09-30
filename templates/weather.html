@@ -1,36 +1,177 @@
 {% extends 'base.html' %}
 {% block title %}{{ site_text.weather }}{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">LIVE WEATHER</p><h1>{{ site_text.weather }}</h1><p>{{ location }}</p></div></section>
-{% if weather and weather_condition %}
-<section class="panel weather-now-panel">
-  <div class="weather-now-main"><div class="weather-icon-large">{{ weather_condition.icon }}</div><div><div class="eyebrow">LIVE WEATHER</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ weather_condition.description }}</p></div></div>
-  </section>
-<div class="stats-grid weather-stats">
-  <div class="stat-card"><span>🌡️ Temperature</span><strong>{{ weather.current.temperature_2m }}°C</strong></div>
-  <div class="stat-card"><span>💧 Humidity</span><strong>{{ weather.current.relative_humidity_2m }}%</strong></div>
-  <div class="stat-card"><span>🌧️ Rain</span><strong>{{ weather.current.precipitation }} mm</strong></div>
-  <div class="stat-card"><span>💨 Wind</span><strong>{{ weather.current.wind_speed_10m }} km/h</strong></div>
+<section class="page-head">
+  <div>
+    <p class="eyebrow">LIVE WEATHER</p>
+    <h1>{{ site_text.weather }}</h1>
+    <p id="weather-location">{{ location }}</p>
+  </div>
+</section>
+
+<div id="weather-loading" class="panel" style="text-align:center;padding:42px">
+  <div style="font-size:42px">🌤️</div>
+  <h2>Loading live weather…</h2>
+  <p>Getting your current location and live weather readings.</p>
 </div>
-<section class="panel"><div class="panel-head"><div><div class="eyebrow">7-DAY FORECAST</div><h2>Upcoming weather</h2><p>Forecast data from the live weather service.</p></div></div><div class="forecast-grid">{% for day in weather_condition.daily %}<div class="forecast-card"><b>{{ day.date }}</b><span>{{ day.icon }}</span><strong>{{ day.label }}</strong><strong>{{ day.max }}° / {{ day.min }}°C</strong><small>Rain chance: {{ day.rain_probability }}%</small></div>{% endfor %}</div></section>
-{% endif %}
+
+<div id="weather-error" class="panel" style="display:none;text-align:center;padding:42px">
+  <div style="font-size:42px">📍</div>
+  <h2>Live weather could not be loaded</h2>
+  <p id="weather-error-text">Allow location access and try again.</p>
+  <button class="btn btn-primary" type="button" onclick="startLiveWeather()">Try again</button>
+</div>
+
+<div id="weather-content" style="display:none">
+  <section class="panel weather-now-panel">
+    <div class="weather-now-main">
+      <div id="weather-icon" class="weather-icon-large">🌤️</div>
+      <div>
+        <div class="eyebrow">LIVE WEATHER</div>
+        <h2><span id="weather-condition">Current conditions</span> · <span id="weather-temperature">--</span>°C</h2>
+        <p id="weather-description">Live weather for your current location.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="stats-grid weather-stats">
+    <div class="stat-card"><span>🌡️ Temperature</span><strong id="stat-temperature">--</strong></div>
+    <div class="stat-card"><span>💧 Humidity</span><strong id="stat-humidity">--</strong></div>
+    <div class="stat-card"><span>🌧️ Rain</span><strong id="stat-rain">--</strong></div>
+    <div class="stat-card"><span>💨 Wind</span><strong id="stat-wind">--</strong></div>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">7-DAY FORECAST</div>
+        <h2>Upcoming weather</h2>
+        <p>Live forecast for your current location.</p>
+      </div>
+    </div>
+    <div id="forecast-grid" class="forecast-grid"></div>
+  </section>
+</div>
 {% endblock %}
+
 {% block scripts %}
 <script>
 (function(){
-  {% if not weather %}
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(function(pos){
-      const u=new URL(window.location.href);
-      u.searchParams.set("lat",pos.coords.latitude);
-      u.searchParams.set("lon",pos.coords.longitude);
-      u.searchParams.set("location","Current location");
-      window.location.href=u.toString();
-    },function(){
-      window.location.href=window.location.pathname;
-    },{enableHighAccuracy:true,timeout:12000,maximumAge:300000});
+  const loading=document.getElementById("weather-loading");
+  const errorBox=document.getElementById("weather-error");
+  const errorText=document.getElementById("weather-error-text");
+  const content=document.getElementById("weather-content");
+
+  function showError(message){
+    loading.style.display="none";
+    content.style.display="none";
+    errorText.textContent=message || "Allow location access and try again.";
+    errorBox.style.display="block";
   }
-  {% endif %}
+
+  function showLoading(){
+    errorBox.style.display="none";
+    content.style.display="none";
+    loading.style.display="block";
+  }
+
+  function condition(code){
+    const map={
+      0:["☀️","Sunny","Clear skies today."],
+      1:["🌤️","Mostly sunny","Mostly clear conditions today."],
+      2:["⛅","Partly cloudy","A mix of sunshine and clouds today."],
+      3:["☁️","Cloudy","Cloudy conditions today."],
+      45:["🌫️","Foggy","Reduced visibility is possible."],
+      48:["🌫️","Foggy","Reduced visibility is possible."],
+      51:["🌦️","Light drizzle","Light drizzle may occur."],
+      53:["🌦️","Drizzle","Drizzle is possible."],
+      55:["🌧️","Drizzle","Persistent drizzle is possible."],
+      61:["🌦️","Light rain","Light rain is expected."],
+      63:["🌧️","Rainy","Rain is expected today."],
+      65:["🌧️","Heavy rain","Heavy rain is possible today."],
+      71:["🌨️","Light snow","Light snow is possible."],
+      73:["🌨️","Snow","Snow is possible."],
+      75:["❄️","Heavy snow","Heavy snow is possible."],
+      80:["🌦️","Rain showers","Rain showers are possible."],
+      81:["🌧️","Rain showers","Rain showers are expected."],
+      82:["⛈️","Heavy showers","Heavy rain showers are possible."],
+      95:["⛈️","Thunderstorm","Thunderstorms are possible."],
+      96:["⛈️","Thunderstorm","Thunderstorms with hail are possible."],
+      99:["⛈️","Thunderstorm","Strong thunderstorms with hail are possible."]
+    };
+    return map[Number(code)] || ["🌤️","Weather update","Current conditions for this location."];
+  }
+
+  function dayCondition(code){
+    return condition(code);
+  }
+
+  function render(data,lat,lon){
+    const cur=data.current||{};
+    const daily=data.daily||{};
+    const c=condition(cur.weather_code);
+    const temp=Number(cur.temperature_2m||0);
+    document.getElementById("weather-icon").textContent=c[0];
+    document.getElementById("weather-condition").textContent=c[1];
+    document.getElementById("weather-temperature").textContent=temp.toFixed(1);
+    document.getElementById("weather-description").textContent=c[2];
+    document.getElementById("stat-temperature").textContent=temp.toFixed(1)+"°C";
+    document.getElementById("stat-humidity").textContent=Number(cur.relative_humidity_2m||0).toFixed(0)+"%";
+    document.getElementById("stat-rain").textContent=Number(cur.precipitation||0).toFixed(1)+" mm";
+    document.getElementById("stat-wind").textContent=Number(cur.wind_speed_10m||0).toFixed(1)+" km/h";
+
+    const grid=document.getElementById("forecast-grid");
+    grid.innerHTML="";
+    const times=daily.time||[];
+    times.forEach((date,i)=>{
+      const dc=dayCondition((daily.weather_code||[])[i]);
+      const high=(daily.temperature_2m_max||[])[i];
+      const low=(daily.temperature_2m_min||[])[i];
+      const rain=(daily.precipitation_probability_max||[])[i] ?? 0;
+      const card=document.createElement("div");
+      card.className="forecast-card";
+      card.innerHTML="<b>"+date+"</b><span>"+dc[0]+"</span><strong>"+dc[1]+"</strong><strong>"+Number(high||0).toFixed(0)+"° / "+Number(low||0).toFixed(0)+"°C</strong><small>Rain chance: "+Number(rain).toFixed(0)+"%</small>";
+      grid.appendChild(card);
+    });
+
+    const location=document.getElementById("weather-location");
+    location.textContent="Live location · "+Number(lat).toFixed(4)+", "+Number(lon).toFixed(4);
+    loading.style.display="none";
+    errorBox.style.display="none";
+    content.style.display="block";
+  }
+
+  async function loadWeather(lat,lon){
+    showLoading();
+    try{
+      const response=await fetch("/api/weather?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if(!response.ok || data.error) throw new Error(data.error||"Weather service unavailable.");
+      render(data,lat,lon);
+    }catch(e){
+      showError("The live weather service could not be reached. Please try again.");
+    }
+  }
+
+  window.startLiveWeather=function(){
+    showLoading();
+    if(!navigator.geolocation){
+      showError("Your browser does not support live location. Open AgriWise in a modern browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      function(pos){loadWeather(pos.coords.latitude,pos.coords.longitude);},
+      function(err){
+        const msg=err.code===1
+          ? "Location access is blocked. Allow location permission for AgriWise, then click Try again."
+          : "Your current location could not be detected. Click Try again.";
+        showError(msg);
+      },
+      {enableHighAccuracy:true,timeout:15000,maximumAge:300000}
+    );
+  };
+
+  startLiveWeather();
 })();
 </script>
 {% endblock %}
