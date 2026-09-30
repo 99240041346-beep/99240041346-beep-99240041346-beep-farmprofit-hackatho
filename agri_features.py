@@ -66,6 +66,183 @@ def register_agri_features(app, db):
             error = "Weather service is temporarily unavailable. Try again in a moment."
         return render_template("weather.html", weather=weather_data, error=error, location=location)
 
+    SOIL_PROFILES = {
+        "Sandy": {
+            "holding": "Low", "factor": 1.18, "interval": "1–2 days",
+            "method": "Drip or light, frequent irrigation",
+            "note": "Sandy soil drains quickly, so apply smaller amounts more often."
+        },
+        "Sandy Loam": {
+            "holding": "Low–Medium", "factor": 1.08, "interval": "2–3 days",
+            "method": "Drip or sprinkler",
+            "note": "Good drainage with moderate water storage; avoid long dry gaps."
+        },
+        "Loamy": {
+            "holding": "Medium–High", "factor": 1.00, "interval": "3–4 days",
+            "method": "Drip, sprinkler or furrow",
+            "note": "Balanced drainage and water holding; use rainfall to extend the interval."
+        },
+        "Silty": {
+            "holding": "High", "factor": 0.94, "interval": "4–5 days",
+            "method": "Drip or controlled furrow",
+            "note": "Retains water well; avoid over-irrigation and waterlogging."
+        },
+        "Clay": {
+            "holding": "Very High", "factor": 0.88, "interval": "5–7 days",
+            "method": "Drip or slow furrow",
+            "note": "High water holding; irrigate slowly and allow the soil to drain."
+        },
+    }
+
+    CROP_WATER_MM = {
+        "Rice": 6.0, "Wheat": 4.0, "Maize": 5.0, "Cotton": 5.0,
+        "Sugarcane": 7.0, "Tomato": 4.0, "Potato": 3.5, "Groundnut": 4.5
+    }
+
+    def fetch_weather_for_place(place):
+        q = urllib.parse.urlencode({
+            "latitude": place["latitude"], "longitude": place["longitude"],
+            "current": "temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m",
+            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
+            "hourly": "precipitation_probability,precipitation,temperature_2m",
+            "forecast_days": 7, "timezone": "auto"
+        })
+        with urllib.request.urlopen("https://api.open-meteo.com/v1/forecast?" + q, timeout=8) as response:
+            data = json.load(response)
+        return {
+            "place": place,
+            "current": data.get("current", {}),
+            "daily": data.get("daily", {}),
+            "hourly": data.get("hourly", {}),
+            "timezone": data.get("timezone", "auto")
+        }
+
+    def find_locations(query):
+        query = (query or "").strip()
+        if len(query) < 2:
+            return []
+        q = urllib.parse.urlencode({
+            "name": query, "count": 6, "language": "en", "format": "json"
+        })
+        with urllib.request.urlopen("https://geocoding-api.open-meteo.com/v1/search?" + q, timeout=8) as response:
+            geo = json.load(response)
+        return [{
+            "id": f"{p.get('latitude')}:{p.get('longitude')}",
+            "name": p.get("name", ""),
+            "admin1": p.get("admin1", ""),
+            "admin2": p.get("admin2", ""),
+            "country": p.get("country", ""),
+            "latitude": p.get("latitude"),
+            "longitude": p.get("longitude")
+        } for p in geo.get("results", [])]
+
+    def irrigation_advice(crop, soil, area, weather):
+        crop = crop if crop in CROP_WATER_MM else "Rice"
+        soil = soil if soil in SOIL_PROFILES else "Loamy"
+        profile = SOIL_PROFILES[soil]
+        area = max(float(area or 1), 0.1)
+        current = weather.get("current", {})
+        daily = weather.get("daily", {})
+        temp = float(current.get("temperature_2m") or 0)
+        humidity = float(current.get("relative_humidity_2m") or 0)
+        rain24 = float((daily.get("precipitation_sum") or [0])[0] or 0)
+        rain48 = sum(float(x or 0) for x in (daily.get("precipitation_sum") or [])[:2])
+        rain_prob = max((daily.get("precipitation_probability_max") or [0])[:2] or [0])
+        base = CROP_WATER_MM[crop] * profile["factor"]
+
+        if temp >= 35:
+            base *= 1.10
+        elif temp <= 20:
+            base *= 0.90
+        if humidity >= 80:
+            base *= 0.90
+        elif humidity <= 45:
+            base *= 1.08
+
+        expected_rain = min(rain24, base)
+        net_mm = max(base - expected_rain, 0)
+        if rain24 >= base * 0.80 or rain_prob >= 70:
+            action = "Skip irrigation — rain expected"
+            timing = "Recheck after the rain event"
+        elif rain24 >= base * 0.35 or rain_prob >= 45:
+            action = "Irrigate tomorrow"
+            timing = "Wait and reassess after the next forecast update"
+        else:
+            action = "Irrigate now"
+            timing = f"Typical interval for {soil.lower()} soil: {profile['interval']}"
+
+        litres_per_acre = net_mm * 4046.856
+        total_litres = litres_per_acre * area
+        return {
+            "crop": crop, "soil": soil, "soil_water_holding": profile["holding"],
+            "soil_factor": profile["factor"], "irrigation_method": profile["method"],
+            "soil_note": profile["note"], "typical_interval": profile["interval"],
+            "action": action, "timing": timing,
+            "estimated_need_mm": round(net_mm, 2),
+            "estimated_litres_per_acre": round(litres_per_acre),
+            "estimated_total_litres": round(total_litres),
+            "rain_24h_mm": round(rain24, 2), "rain_48h_mm": round(rain48, 2),
+            "rain_probability_percent": round(rain_prob),
+            "temperature_c": round(temp, 1), "humidity_percent": round(humidity),
+            "method": "Rule-based estimate using crop demand, selected soil, temperature, humidity and forecast rain.",
+        }
+
+    @app.get("/api/location-search")
+    @login_required
+    def location_search_api():
+        query = request.args.get("q", "")
+        try:
+            return jsonify({"results": find_locations(query)})
+        except Exception:
+            return jsonify({"results": [], "error": "Location search is temporarily unavailable."}), 503
+
+    @app.route("/weather")
+    @login_required
+    def weather():
+        location = request.args.get("location", "Pudukkottai").strip() or "Pudukkottai"
+        weather_data = None
+        error = None
+        try:
+            places = find_locations(location)
+            if not places:
+                raise ValueError("Location not found")
+            weather_data = fetch_weather_for_place(places[0])
+        except Exception:
+            error = "Could not load weather for that location. Search again and select a valid place."
+        return render_template("weather.html", weather=weather_data, error=error, location=location)
+
+    @app.get("/api/weather")
+    @login_required
+    def weather_api():
+        try:
+            lat = float(request.args["lat"])
+            lon = float(request.args["lon"])
+            name = request.args.get("name", "Selected farm")
+            place = {"name": name, "latitude": lat, "longitude": lon}
+            return jsonify(fetch_weather_for_place(place))
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "Select a farm location first."}), 400
+        except Exception:
+            return jsonify({"error": "Weather service is temporarily unavailable."}), 503
+
+    @app.get("/api/irrigation")
+    @login_required
+    def irrigation_api():
+        try:
+            lat = float(request.args["lat"])
+            lon = float(request.args["lon"])
+            crop = request.args.get("crop", "Rice")
+            soil = request.args.get("soil", "Loamy")
+            area = float(request.args.get("area", "1"))
+            place = {"name": request.args.get("name", "Selected farm"), "latitude": lat, "longitude": lon}
+            weather_data = fetch_weather_for_place(place)
+            advice = irrigation_advice(crop, soil, area, weather_data)
+            return jsonify({"location": place, "irrigation": advice})
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "Select a location, crop, soil type and valid farm area."}), 400
+        except Exception:
+            return jsonify({"error": "Irrigation data is temporarily unavailable."}), 503
+
     @app.route("/equipment")
     @login_required
     def equipment():
