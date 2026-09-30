@@ -1,35 +1,46 @@
 {% extends 'base.html' %}
 {% block title %}{{ site_text.weather }}{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">{{ weather.record_label }}</p><h1>{{ site_text.weather }}</h1><p>{{ selected_place.name }} • {{ weather.record_label }}</p></div></section>
+<section class="page-head"><div><p class="eyebrow">LIVE WEATHER</p><h1>{{ site_text.weather }}</h1><p>Weather is based on your device's current location, not a manually selected farm.</p></div></section>
 <section class="panel location-panel">
-  <div class="panel-head"><div><div class="eyebrow">FARM LOCATION</div><h2>Select the place you want to monitor</h2><p>Search for a village, town, district or city, then select a result.</p></div></div>
-  <div class="location-search-row weather-location-row"><label>Weather location<input id="weatherLocationInput" type="search" value="{{ location }}" placeholder="e.g. Pudukkottai, Chennai, Coimbatore" autocomplete="off"></label><button class="btn btn-primary" type="button" id="weatherLocationSearch">Search location</button></div>
-  <div id="locationResults" class="location-results" hidden></div>
-  <div id="selectedWeatherLocation" class="selected-location">✓ {{ selected_place.name }}, India</div>
+  <div class="panel-head"><div><div class="eyebrow">CURRENT LOCATION</div><h2>Use your live location</h2><p id="weatherLocationStatus">{% if error %}{{ error }}{% else %}Getting your current location…{% endif %}</p></div></div>
+  <button class="btn btn-primary" type="button" id="weatherLocateButton">Use my current location</button>
 </section>
-
+{% if weather and weather_condition %}
 <section class="panel weather-now-panel">
-  <div class="weather-now-main"><div class="weather-icon-large">{{ weather_condition.icon }}</div><div><div class="eyebrow">RECORDED WEATHER</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ weather_condition.description }}</p></div></div>
+  <div class="weather-now-main"><div class="weather-icon-large">{{ weather_condition.icon }}</div><div><div class="eyebrow">LIVE WEATHER</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ weather_condition.description }}</p></div></div>
   <div class="weather-alerts"><div class="eyebrow">FARM ALERTS</div>{% for alert in weather_condition.alerts %}<div class="weather-alert"><span>{{ alert[0] }}</span><div><strong>{{ alert[1] }}</strong><p>{{ alert[2] }}</p></div></div>{% endfor %}</div>
 </section>
-
 <div class="stats-grid weather-stats">
   <div class="stat-card"><span>🌡️ Temperature</span><strong>{{ weather.current.temperature_2m }}°C</strong></div>
   <div class="stat-card"><span>💧 Humidity</span><strong>{{ weather.current.relative_humidity_2m }}%</strong></div>
   <div class="stat-card"><span>🌧️ Rain</span><strong>{{ weather.current.precipitation }} mm</strong></div>
   <div class="stat-card"><span>💨 Wind</span><strong>{{ weather.current.wind_speed_10m }} km/h</strong></div>
 </div>
-
-<section class="panel">
-  <div class="panel-head"><div><div class="eyebrow">{{ weather.record_label }}</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ selected_place.name }}, India</p></div></div>
-  <div class="weather-day-summary"><span>🌤️</span><div><strong>{{ weather_condition.description }}</strong><p>{{ weather.day_summary }}</p></div></div>
-</section>
-
-<section class="panel"><div class="panel-head"><div><div class="eyebrow">7-DAY RECORD</div><h2>Weather around your farm</h2><p>Recorded display values for planning and demonstration.</p></div></div><div class="forecast-grid">{% for day in weather_condition.daily %}<div class="forecast-card"><b>{{ day.date }}</b><span>{{ day.icon }}</span><strong>{{ day.label }}</strong><strong>{{ day.max }}° / {{ day.min }}°C</strong><small>Rain chance: {{ day.rain_probability }}%</small></div>{% endfor %}</div></section>
-
-<section class="panel agri-intelligence-panel"><div class="panel-head"><div><div class="eyebrow">IRRIGATION PLANNER</div><h2>Turn weather into an irrigation plan</h2><p>Water need changes with crop, soil and growth stage.</p></div></div>
+<section class="panel"><div class="panel-head"><div><div class="eyebrow">TODAY</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ location }}</p></div></div><div class="weather-day-summary"><span>{{ weather_condition.icon }}</span><div><strong>{{ weather_condition.description }}</strong><p>Live weather for your current device location. Use the irrigation planner below only when you want crop- and soil-specific advice.</p></div></div></section>
+<section class="panel"><div class="panel-head"><div><div class="eyebrow">7-DAY FORECAST</div><h2>Upcoming weather</h2><p>Forecast data from the live weather service.</p></div></div><div class="forecast-grid">{% for day in weather_condition.daily %}<div class="forecast-card"><b>{{ day.date }}</b><span>{{ day.icon }}</span><strong>{{ day.label }}</strong><strong>{{ day.max }}° / {{ day.min }}°C</strong><small>Rain chance: {{ day.rain_probability }}%</small></div>{% endfor %}</div></section>
+{% endif %}
+<section class="panel agri-intelligence-panel"><div class="panel-head"><div><div class="eyebrow">IRRIGATION PLANNER</div><h2>Crop + soil irrigation</h2><p>Weather is general location data. Crop and soil are used separately to estimate irrigation.</p></div></div>
 <div class="field-row four irrigation-controls"><label>Crop<select id="irrigationCrop">{% for crop, info in crops.items() %}<option value="{{ crop }}">{{ crop }}</option>{% endfor %}</select></label><label>Soil type<select id="irrigationSoil">{% for soil in soil_profiles.keys() %}<option value="{{ soil }}" {% if soil=='Loamy' %}selected{% endif %}>{{ soil }}</option>{% endfor %}</select></label><label>Growth stage<select id="irrigationStage">{% for stage in crop_stages.keys() %}<option value="{{ stage }}" {% if stage=='Vegetative' %}selected{% endif %}>{{ stage }}</option>{% endfor %}</select></label><label>Land area (acres)<input id="irrigationArea" type="number" min="0.1" step="0.1" value="1"></label></div>
-<div class="irrigation-action-wrap"><button class="btn btn-primary" type="button" id="checkIrrigation">Calculate irrigation</button></div><div id="irrigationStatus" class="irrigation-status">Your selected weather location is ready.</div><div id="irrigationResult" class="irrigation-result" hidden></div></section>
+<div class="irrigation-action-wrap"><button class="btn btn-primary" type="button" id="checkIrrigation">Calculate irrigation</button></div><div id="irrigationStatus" class="irrigation-status">Allow location access to load live weather.</div><div id="irrigationResult" class="irrigation-result" hidden></div></section>
 {% endblock %}
-{% block scripts %}<script>window.WEATHER_PAGE={selectedPlace:{{ selected_place|tojson }}};</script>{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+ const status=document.getElementById("weatherLocationStatus"), button=document.getElementById("weatherLocateButton");
+ function locate(){
+   if(!navigator.geolocation){status.textContent="This browser does not support live location.";return;}
+   status.textContent="Requesting your current location…"; button.disabled=true;
+   navigator.geolocation.getCurrentPosition(function(pos){
+      const u=new URL(window.location.href);
+      u.searchParams.set("lat",pos.coords.latitude); u.searchParams.set("lon",pos.coords.longitude);
+      u.searchParams.set("location","Current location");
+      window.location.href=u.toString();
+   },function(){status.textContent="Location permission was denied or unavailable. Enable location access for this site and press Retry.";button.disabled=false;button.textContent="Retry live location";},{enableHighAccuracy:true,timeout:12000,maximumAge:300000});
+ }
+ button.addEventListener("click",locate);
+ {% if not weather %} locate(); {% endif %}
+})();
+window.WEATHER_PAGE={selectedPlace:{{ selected_place|tojson }}};
+</script>
+{% endblock %}
