@@ -15,20 +15,31 @@ SOIL_PROFILES = {
 CROP_WATER_MM={"Rice":6.0,"Wheat":4.0,"Maize":5.0,"Cotton":5.0,"Sugarcane":7.0,"Tomato":4.0,"Potato":3.5,"Groundnut":4.5}
 
 def fetch_weather(place):
+    lat=float(place["latitude"]); lon=float(place["longitude"])
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError("Invalid weather coordinates")
     q=urllib.parse.urlencode({
-        "latitude":place["latitude"],"longitude":place["longitude"],
+        "latitude":lat,"longitude":lon,
         "current":"temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m",
         "daily":"temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
-        "hourly":"precipitation_probability,precipitation,temperature_2m",
         "forecast_days":7,"timezone":"auto"
     })
-    with urllib.request.urlopen("https://api.open-meteo.com/v1/forecast?"+q,timeout=8) as response:
-        data=json.load(response)
-    return {"place":place,"current":data.get("current",{}),"daily":data.get("daily",{}),"hourly":data.get("hourly",{}),"timezone":data.get("timezone","auto")}
+    url="https://api.open-meteo.com/v1/forecast?"+q
+    last_error=None
+    for _ in range(2):
+        try:
+            req=urllib.request.Request(url,headers={"User-Agent":"FarmProfit/1.0"})
+            with urllib.request.urlopen(req,timeout=12) as response:
+                data=json.load(response)
+            if data.get("error"): raise ValueError(data.get("reason","Weather API error"))
+            return {"place":place,"current":data.get("current",{}),"daily":data.get("daily",{}),"hourly":data.get("hourly",{}),"timezone":data.get("timezone","auto")}
+        except Exception as exc:
+            last_error=exc
+    raise RuntimeError("Weather service unavailable") from last_error
 
 def find_locations(query):
     if len((query or "").strip())<2:return []
-    q=urllib.parse.urlencode({"name":query.strip(),"count":6,"language":"en","format":"json"})
+    q=urllib.parse.urlencode({"name":query.strip(),"count":8,"language":"en","format":"json"})
     with urllib.request.urlopen("https://geocoding-api.open-meteo.com/v1/search?"+q,timeout=8) as response:
         geo=json.load(response)
     return [{"id":f"{p.get('latitude')}:{p.get('longitude')}","name":p.get("name",""),"admin1":p.get("admin1",""),"admin2":p.get("admin2",""),"country":p.get("country",""),"latitude":p.get("latitude"),"longitude":p.get("longitude")} for p in geo.get("results",[])]
@@ -87,12 +98,21 @@ def register_agri_features(app,db):
     def weather():
         location=request.args.get("location","Pudukkottai").strip() or "Pudukkottai"
         try:
-            places=find_locations(location)
-            if not places: raise ValueError()
-            data=fetch_weather(places[0])
-            return render_template("weather.html",weather=data,error=None,location=location,day_summary=day_summary(data))
+            if request.args.get("lat") and request.args.get("lon"):
+                place={"name":location,"latitude":float(request.args["lat"]),"longitude":float(request.args["lon"]),"country":request.args.get("country","")}
+            else:
+                places=find_locations(location)
+                if not places: raise ValueError("No matching place")
+                place=places[0]
+                location=place["name"]
+            data=fetch_weather(place)
+            return render_template("weather.html",weather=data,error=None,location=location,day_summary=day_summary(data),selected_place=place)
+        except ValueError:
+            msg="That place was not found. Search for a village, town, district or city and select a result."
         except Exception:
-            return render_template("weather.html",weather=None,error="Could not load weather for that location. Search again and select a valid place.",location=location,day_summary=None)
+            msg="Weather data is temporarily unavailable for that place. Please try again."
+        return render_template("weather.html",weather=None,error=msg,location=location,day_summary=None,selected_place=None)
+
     @app.get("/api/weather")
     @login_required
     def weather_api():
