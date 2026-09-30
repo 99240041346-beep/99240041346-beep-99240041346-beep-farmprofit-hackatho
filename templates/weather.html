@@ -5,7 +5,7 @@
 <section class="panel location-panel"><div class="panel-head"><div><div class="eyebrow">FARM LOCATION</div><h2>Select the place you want to monitor</h2><p>Search for a village, town, district or city, then select the exact result.</p></div></div>
 <div class="location-search-row weather-location-row"><label>Weather location<input id="weatherLocationInput" type="search" value="{{ location }}" placeholder="e.g. Pudukkottai, Chennai, Coimbatore" autocomplete="off"></label><button class="btn btn-primary" type="button" id="weatherLocationSearch">Search location</button></div>
 <div id="locationResults" class="location-results" hidden></div>
-<div id="selectedWeatherLocation" class="selected-location">{% if selected_place %}✓ {{ selected_place.name }}{% if selected_place.admin1 %}, {{ selected_place.admin1 }}{% endif %}{% if selected_place.country %}, {{ selected_place.country }}{% endif %}{% else %}Search and select a location to load weather.{% endif %}</div></section>
+<div id="selectedWeatherLocation" class="selected-location">{% if selected_place %}✓ {{ selected_place.name }}{% if selected_place.admin1 %}, {{ selected_place.admin1 }}{% endif %}{% if selected_place.country %}, {{ selected_place.country }}{% endif %}{% else %}Choose your village, town or city to see today’s weather.{% endif %}</div></section>
 {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
 {% if weather %}
 {% if weather_condition %}
