@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, text
@@ -56,7 +56,11 @@ def set_language():
     if language in SITE_LANGUAGES:
         session["site_language"] = language
         session["agri_language"] = language
-    return redirect(request.form.get("next") or url_for("dashboard"))
+    response = make_response(redirect(request.form.get("next") or url_for("dashboard")))
+    google_codes = {"English":"en","తెలుగు":"te","தமிழ்":"ta","हिन्दी":"hi","ಕನ್ನಡ":"kn","മലയാളം":"ml"}
+    code = google_codes.get(language, "en")
+    response.set_cookie("googtrans", f"/en/{code}", max_age=31536000, samesite="Lax")
+    return response
 
 
 # Planning profiles use common Indian farm units: yield is quintals/acre and
