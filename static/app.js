@@ -194,7 +194,7 @@
     localStorage.setItem("agriwise-weather-location", JSON.stringify(place));
     if (irrigationStatus) irrigationStatus.textContent = "Location selected. Weather and irrigation can now use this farm location.";
     // On the Weather page, immediately reload the real forecast for the chosen result.
-    if (window.WEATHER_PAGE) {
+    if (window.WEATHER_PAGE && (!window.WEATHER_PAGE.selectedPlace || String(window.WEATHER_PAGE.selectedPlace.latitude) !== String(place.latitude) || String(window.WEATHER_PAGE.selectedPlace.longitude) !== String(place.longitude))) {
       const params = new URLSearchParams({
         location: locationLabel(place),
         lat: place.latitude,
