@@ -188,11 +188,25 @@
       const data=await direct.json();
       if(!direct.ok || data.error || !data.current) throw new Error("direct current weather failed");
       render(data,lat,lon);
-      // Forecast is deliberately non-blocking.
-      fetch("/api/weather-forecast?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"})
+      // Forecast is fetched directly too, so Render latency never blocks the 7-day cards.
+      const forecastUrl="https://api.open-meteo.com/v1/forecast?latitude="+encodeURIComponent(lat)+"&longitude="+encodeURIComponent(lon)+"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code&forecast_days=7&timezone=auto";
+      fetch(forecastUrl,{cache:"no-store",priority:"high"})
         .then(function(r){return r.ok?r.json():null;})
-        .then(function(forecast){if(forecast&&forecast.daily){renderForecast(forecast);generateFarmerAlerts(forecast);}})
-        .catch(function(){});
+        .then(function(forecast){
+          if(forecast&&forecast.daily){
+            renderForecast(forecast);
+            generateFarmerAlerts({current:data.current||{},daily:forecast.daily});
+          }else{
+            throw new Error("direct forecast failed");
+          }
+        })
+        .catch(function(){
+          // Render is only a fallback if the direct forecast request fails.
+          fetch("/api/weather-forecast?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"})
+            .then(function(r){return r.ok?r.json():null;})
+            .then(function(fallback){if(fallback&&fallback.daily){renderForecast(fallback);generateFarmerAlerts(fallback);}})
+            .catch(function(){});
+        });
       return;
     }catch(e){}
     // Server fallback.
