@@ -19,31 +19,33 @@ CROP_WATER_MM = {"Rice":6.0,"Wheat":4.0,"Maize":5.0,"Cotton":5.0,"Sugarcane":7.0
 CROP_STAGES = {"Establishment":0.78,"Vegetative":1.00,"Flowering / Fruiting":1.16,"Grain / Bulking":1.20,"Maturity":0.76}
 
 
-def fetch_weather(place):
+def _weather_request(place, include_forecast=False):
     lat=float(place["latitude"]); lon=float(place["longitude"])
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         raise ValueError("Invalid weather coordinates")
-    q=urllib.parse.urlencode({
+    params={
         "latitude":lat,"longitude":lon,
         "current":"temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,weather_code",
-        "daily":"temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
-        "forecast_days":7,"timezone":"auto"
-    })
-    url="https://api.open-meteo.com/v1/forecast?"+q
-    last_error=None
-    for _ in range(2):
-        try:
-            req=urllib.request.Request(url,headers={"User-Agent":"AgriWise/1.0"})
-            with urllib.request.urlopen(req,timeout=12) as response:
-                data=json.load(response)
-            if data.get("error"):
-                raise ValueError(data.get("reason","Weather API error"))
-            return {"place":place,"current":data.get("current",{}),"daily":data.get("daily",{}),"hourly":data.get("hourly",{}),"timezone":data.get("timezone","auto")}
-        except Exception as exc:
-            last_error=exc
-    raise RuntimeError("Weather service unavailable") from last_error
+        "timezone":"auto"
+    }
+    if include_forecast:
+        params.update({
+            "daily":"temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
+            "forecast_days":7
+        })
+    url="https://api.open-meteo.com/v1/forecast?"+urllib.parse.urlencode(params)
+    req=urllib.request.Request(url,headers={"User-Agent":"AgriWise/1.0"})
+    with urllib.request.urlopen(req,timeout=7) as response:
+        data=json.load(response)
+    if data.get("error"):
+        raise ValueError(data.get("reason","Weather API error"))
+    return {"place":place,"current":data.get("current",{}),"daily":data.get("daily",{}),"hourly":data.get("hourly",{}),"timezone":data.get("timezone","auto")}
 
+def fetch_weather(place):
+    return _weather_request(place, include_forecast=False)
 
+def fetch_weather_forecast(place):
+    return _weather_request(place, include_forecast=True)
 def find_locations(query):
     query=(query or "").strip()
     if len(query)<2:
@@ -343,6 +345,21 @@ def register_agri_features(app,db):
         except Exception:
             return jsonify({"error":"Approximate location weather is temporarily unavailable."}),503
 
+    @app.get("/api/weather-forecast")
+    @login_required
+    def weather_forecast_api():
+        try:
+            lat=float(request.args["lat"]); lon=float(request.args["lon"])
+            name=request.args.get("name","Current location")
+            place={"name":name,"country":"India","latitude":lat,"longitude":lon}
+            data=fetch_weather_forecast(place)
+            data["condition"]=weather_condition(data)
+            data["live"]=True
+            return jsonify(data)
+        except (KeyError,TypeError,ValueError):
+            return jsonify({"error":"Live latitude and longitude are required."}),400
+        except Exception:
+            return jsonify({"error":"Forecast is temporarily unavailable."}),503
     @app.get("/api/weather")
     @login_required
     def weather_api():
