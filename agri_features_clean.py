@@ -5,6 +5,7 @@ from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_required, current_user
+from agri_chat import LANGUAGES, reply
 
 SOIL_PROFILES = {
     "Sandy": {"holding":"Low","factor":1.18,"interval":"1–2 days","method":"Drip or light, frequent irrigation","note":"Drains quickly, so smaller and more frequent irrigation is usually appropriate."},
@@ -302,34 +303,18 @@ def register_agri_features(app,db):
     @login_required
     def assistant():
         if "agri_chat" not in session:
-            session["agri_chat"]=[{"role":"assistant","text":"Namaste! 🌱 I’m your AgriWise farming assistant. Ask me about crops, rain, irrigation, soil, pests, fertilizers, market planning or farm equipment."}]
+            session["agri_chat"]=[{"role":"assistant","text":"Namaste! 🌱 Ask me about weather, crops, irrigation, soil, pests, markets, profit or equipment."}]
+        language=request.form.get("language",session.get("agri_language","English"))
+        if language not in LANGUAGES: language="English"
+        session["agri_language"]=language
         if request.method=="POST":
             question=request.form.get("question","").strip()
             if question:
-                q=question.lower()
-                answer="Tell me your crop, location and what you want to know. I can help you plan the next farming step."
-                if any(x in q for x in ["rain","weather","sunny","cloudy","forecast"]):
-                    answer="For weather, open Weather & Alerts and search your Indian village, town or city. I’ll show simple conditions such as Sunny, Cloudy, Rainy or Thunderstorm and highlight farm-relevant alerts."
-                elif any(x in q for x in ["irrigation","water","watering"]):
-                    answer="I can help plan irrigation using your crop, soil and growth stage. Tell me the crop and soil type, such as “Tomato on loamy soil”."
-                elif any(x in q for x in ["crop","plant","sow","seed"]):
-                    answer="I can help choose crops and plan sowing. Tell me your district, season, soil type and available water. I’ll explain suitable crop options and the main things to watch."
-                elif any(x in q for x in ["soil","fertilizer","manure","nutrient"]):
-                    answer="Tell me the soil type and crop. I can explain suitable irrigation, nutrient planning and what to check with a soil test before applying fertilizer."
-                elif any(x in q for x in ["pest","disease","insect","fungus"]):
-                    answer="Tell me the crop and describe the pest or symptom, or upload a clear plant photo if your setup supports images. I can help narrow down likely causes and safe next steps."
-                elif any(x in q for x in ["tractor","harvester","pump","sprayer","equipment"]):
-                    answer="Open Equipment Rental to compare available farm machinery, prices and rental dates. I can also help you decide which machine fits your field work."
-                elif any(x in q for x in ["profit","price","income","market"]):
-                    answer="I can help with farm economics. Give me crop, area, expected yield, selling price and major costs, and I’ll help you understand revenue, cost, profit and break-even."
-                elif any(x in q for x in ["hello","hi","namaste"]):
-                    answer="Namaste! 🌾 What are you growing, and what do you need help with today?"
                 history=session["agri_chat"]
                 history.append({"role":"user","text":question})
-                history.append({"role":"assistant","text":answer})
+                history.append({"role":"assistant","text":reply(language,question)})
                 session["agri_chat"]=history[-12:]
-        return render_template("assistant.html",chat=session.get("agri_chat",[]))
-
+        return render_template("assistant.html",chat=session.get("agri_chat",[]),language=language)
     @app.context_processor
     def agri_globals():
         return {"agri_nav":True,"soil_profiles":SOIL_PROFILES,"crop_stages":CROP_STAGES}
