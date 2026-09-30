@@ -1,5 +1,44 @@
 {% extends "base.html" %}
-{% block title %}Profit Predictor — AgriWise{% endblock %}
+{% block title %}Profit Predictor — AgriWise<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  function money(v){return "₹"+Number(v||0).toLocaleString("en-IN",{maximumFractionDigits:0});}
+  async function loadWeather(){
+    if(!navigator.geolocation){$("weather-signal").textContent="Live weather unavailable; prediction will use crop and soil inputs.";return;}
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      try{
+        const u="https://api.open-meteo.com/v1/forecast?latitude="+pos.coords.latitude+"&longitude="+pos.coords.longitude+"&current=temperature_2m,relative_humidity_2m,precipitation&daily=precipitation_probability_max&forecast_days=2&timezone=auto";
+        const r=await fetch(u,{cache:"no-store"}); const d=await r.json();
+        $("temperature").value=d.current?.temperature_2m??"";
+        $("humidity").value=d.current?.relative_humidity_2m??"";
+        $("rain").value=d.current?.precipitation??"";
+        $("rain_probability").value=Math.max(...(d.daily?.precipitation_probability_max||[0]));
+        $("weather-signal").textContent="Live weather connected: "+Number(d.current?.temperature_2m||0).toFixed(1)+"°C · "+Number(d.current?.relative_humidity_2m||0).toFixed(0)+"% humidity · "+Number(d.current?.precipitation||0).toFixed(1)+" mm rain.";
+      }catch(e){$("weather-signal").textContent="Live weather could not be attached; crop and soil prediction is still available.";}
+    },()=>{$("weather-signal").textContent="Location permission not granted; run prediction with crop, soil and stage inputs."},{timeout:3500,maximumAge:900000});
+  }
+  $("aiPredictBtn")?.addEventListener("click",async()=>{
+    const payload={
+      crop:$("crop").value, area:$("area").value, price:$("price").value,
+      soil:$("soil").value, stage:$("stage").value,
+      temperature:$("temperature").value, humidity:$("humidity").value,
+      rain:$("rain").value, rain_probability:$("rain_probability").value
+    };
+    const r=await fetch("{{ url_for('api_ai_predict') }}",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!r.ok||d.error){$("ai-engine").textContent=d.error||"Prediction failed.";return;}
+    $("ai-yield").textContent=Number(d.predicted_yield_per_acre).toFixed(2)+" q";
+    $("ai-profit").textContent=money(d.profit);
+    $("ai-water").textContent=Number(d.water_need_litres_per_acre).toLocaleString("en-IN")+" L";
+    $("ai-risk").textContent=d.risk;
+    $("ai-confidence").textContent="Confidence "+d.confidence+"%";
+    $("ai-engine").textContent=d.engine;
+    $("ai-insights").innerHTML=(d.insights||[]).map(x=>"<div style='padding:8px 10px;margin:5px 0;background:#f7f8f6;border-radius:8px'>🌱 "+x+"</div>").join("");
+    $("ai-irrigation").textContent="💧 Irrigation: "+d.irrigation_action+" Estimated need: "+d.water_need_mm+" mm/acre.";
+  });
+  loadWeather();
+})();
+</script>{% endblock %}
 {% block content %}
 <header class="page-head compact"><div><div class="eyebrow">FARM INTELLIGENCE / PROFIT PREDICTOR</div><h1>Farm Profit Predictor</h1><p>Build a farm budget using your land size, expected yield, local selling price and per-acre production costs.</p></div><a class="btn btn-light" href="{{ url_for('history') }}">View history</a></header>
 <div class="sim-layout">
@@ -10,14 +49,14 @@
 <label>Crop<select name="crop" id="crop">{% for crop, info in crops.items() %}<option value="{{ crop }}" data-yield="{{ info.yield }}" data-price="{{ info.price }}" {% if form.get('crop','Rice') == crop %}selected{% endif %}>{{ crop }}</option>{% endfor %}</select></label>
 <label>Land area (acres)<input id="area" name="area" type="number" min="0.1" step="0.1" value="{{ form.get('area','5') }}" required></label>
 </div>
-<div class="field-row two"><label>Expected yield / acre (quintals)<input id="yield_per_acre" name="yield_per_acre" type="number" min="0" step="0.1" value="{{ form.get('yield_per_acre','22') }}" required></label><label>Expected selling price / quintal (₹)<input id="price" name="price" type="number" min="0" step="1" value="{{ form.get('price','2400') }}" required></label></div>
+<div class="field-row two"><label>Soil type<select name="soil" id="soil"><option>Loamy</option><option>Black Soil</option><option>Sandy</option><option>Sandy Loam</option><option>Silty</option><option>Clay</option></select></label><label>Growth stage<select name="stage" id="stage"><option>Establishment</option><option selected>Vegetative</option><option>Flowering / Fruiting</option><option>Grain / Bulking</option><option>Maturity</option></select></label></div><div class="field-row two"><label>Expected yield / acre (quintals)<input id="yield_per_acre" name="yield_per_acre" type="number" min="0" step="0.1" value="{{ form.get('yield_per_acre','22') }}" required></label><label>Expected selling price / quintal (₹)<input id="price" name="price" type="number" min="0" step="1" value="{{ form.get('price','2400') }}" required></label></div>
 <div class="cost-heading">PRODUCTION COSTS / ACRE</div>
 <div class="field-row two costs">{% for key, label, default in cost_fields %}<label>{{ label }} (₹)<input name="{{ key }}" type="number" min="0" step="100" value="{{ form.get(key, default) }}"></label>{% endfor %}</div>
-<div class="form-actions"><button class="btn btn-primary" type="submit">Calculate Profit</button><button class="btn btn-light" type="button" id="saveBtn">Calculate & Save Plan</button></div>
+<div class="form-actions"><button class="btn btn-primary" type="submit">Calculate Profit</button><button class="btn btn-light" type="button" id="saveBtn">Calculate & Save Plan</button></div><div class="panel" style="margin-top:16px;background:#f6fbf4"><div class="eyebrow">AI FARM SIGNALS</div><p id="weather-signal" style="margin:6px 0">Getting current weather for the prediction…</p><input type="hidden" id="temperature" name="temperature"><input type="hidden" id="humidity" name="humidity"><input type="hidden" id="rain" name="rain"><input type="hidden" id="rain_probability" name="rain_probability"><button class="btn btn-light" type="button" id="aiPredictBtn">Run AI Farm Prediction</button></div>
 </form></section>
 <section class="results-column">
 <div class="result-hero {% if result and result.profit < 0 %}loss{% endif %}"><small>ESTIMATED NET PROFIT</small><div id="profit-display">₹{{ "{:,.0f}".format(result.profit) if result else "0" }}</div><p id="profit-message">{% if result %}{% if result.profit < 0 %}This plan is currently loss-making.{% else %}This plan is profitable under your assumptions.{% endif %}{% else %}Change the values to calculate your profit.{% endif %}</p></div>
-<div class="metric-grid mini"><div class="metric"><small>Revenue</small><strong id="revenue-display">₹{{ "{:,.0f}".format(result.revenue) if result else "0" }}</strong></div><div class="metric"><small>Total Cost</small><strong id="cost-display">₹{{ "{:,.0f}".format(result.total_cost) if result else "0" }}</strong></div><div class="metric"><small>ROI</small><strong id="roi-display">{{ "{:.1f}".format(result.roi) if result else "0.0" }}%</strong></div><div class="metric"><small>Risk</small><strong id="risk-display">{{ result.risk if result else "—" }}</strong></div></div>
+<div class="panel insight-panel" style="margin-top:14px"><div class="panel-head"><div><div class="eyebrow">AI DECISION ENGINE</div><h2>Farm prediction</h2><p id="ai-engine">Add your crop, soil and stage, then run the prediction.</p></div><strong id="ai-confidence">--</strong></div><div class="metric-grid mini"><div class="metric"><small>AI yield / acre</small><strong id="ai-yield">—</strong></div><div class="metric"><small>Predicted profit</small><strong id="ai-profit">—</strong></div><div class="metric"><small>Water / acre</small><strong id="ai-water">—</strong></div><div class="metric"><small>Risk</small><strong id="ai-risk">—</strong></div></div><div id="ai-insights" style="margin-top:14px"></div><div id="ai-irrigation" style="margin-top:10px;font-weight:600"></div></div><div class="metric-grid mini"><div class="metric"><small>Revenue</small><strong id="revenue-display">₹{{ "{:,.0f}".format(result.revenue) if result else "0" }}</strong></div><div class="metric"><small>Total Cost</small><strong id="cost-display">₹{{ "{:,.0f}".format(result.total_cost) if result else "0" }}</strong></div><div class="metric"><small>ROI</small><strong id="roi-display">{{ "{:.1f}".format(result.roi) if result else "0.0" }}%</strong></div><div class="metric"><small>Risk</small><strong id="risk-display">{{ result.risk if result else "—" }}</strong></div></div>
 <div class="panel insight-panel"><div class="panel-head"><div><div class="eyebrow">DECISION METRICS</div><h2>Break-even & production</h2></div></div><div class="break-grid"><div><span>Break-even price</span><b id="be-price">₹{{ "{:,.0f}".format(result.break_even_price) if result else "0" }}</b></div><div><span>Break-even yield</span><b id="be-yield">{{ "{:.2f}".format(result.break_even_yield) if result else "0.00" }}</b></div><div><span>Production</span><b id="production">{{ "{:,.1f}".format(result.production) if result else "0" }}</b></div><div><span>Margin</span><b id="margin">{{ "{:.1f}".format(result.margin) if result else "0.0" }}%</b></div></div></div>
 </section></div>
 <section class="panel whatif" id="what-if"><div class="panel-head"><div><div class="eyebrow">WHAT-IF SIMULATOR</div><h2>Stress-test your assumptions</h2><p>Stress-test price, yield and production costs before you commit money to the crop.</p></div><span class="live-dot">● LIVE</span></div><div class="slider-grid"><label>Market price <output id="priceOut">0%</output><input id="priceSlider" type="range" min="-30" max="30" value="0"></label><label>Yield <output id="yieldOut">0%</output><input id="yieldSlider" type="range" min="-30" max="30" value="0"></label><label>Total costs <output id="costOut">0%</output><input id="costSlider" type="range" min="-30" max="30" value="0"></label></div><div class="whatif-result"><div><small>Scenario revenue</small><strong id="scenarioRevenue">₹0</strong></div><div><small>Scenario cost</small><strong id="scenarioCost">₹0</strong></div><div><small>Scenario profit</small><strong id="scenarioProfit">₹0</strong></div><div><small>Change vs baseline</small><strong id="scenarioChange">0%</strong></div><div><small>Scenario margin</small><strong id="scenarioMargin">0%</strong></div><div><small>Scenario risk</small><strong id="scenarioRisk">—</strong></div></div><div class="irrigation-disclaimer">Scenario values are mathematical projections from your baseline assumptions. Actual farm results vary with weather, pests, quality, market grade, timing, labour and local prices.</div></section>
