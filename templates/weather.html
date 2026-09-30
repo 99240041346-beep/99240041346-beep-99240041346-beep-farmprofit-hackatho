@@ -143,13 +143,25 @@
 
   async function loadWeather(lat,lon){
     showLoading();
+    const qs="latitude="+encodeURIComponent(lat)+"&longitude="+encodeURIComponent(lon)
+      +"&current=temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,weather_code"
+      +"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code"
+      +"&forecast_days=7&timezone=auto";
     try{
       const response=await fetch("/api/weather?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"});
       const data=await response.json();
-      if(!response.ok || data.error) throw new Error(data.error||"Weather service unavailable.");
+      if(response.ok && !data.error){
+        render(data,lat,lon);
+        return;
+      }
+    }catch(e){}
+    try{
+      const direct=await fetch("https://api.open-meteo.com/v1/forecast?"+qs,{cache:"no-store"});
+      const data=await direct.json();
+      if(!direct.ok || data.error || !data.current) throw new Error("direct weather failed");
       render(data,lat,lon);
     }catch(e){
-      showError("The live weather service could not be reached. Please try again.");
+      showError("Live weather is temporarily unavailable. Check your internet connection and try again.");
     }
   }
 
