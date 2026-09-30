@@ -322,6 +322,27 @@ def register_agri_features(app,db):
             selected_place={"name":location,"country":"India","latitude":lat,"longitude":lon} if lat and lon else None,
             crops={name:{} for name in CROP_WATER_MM},soil_profiles=SOIL_PROFILES,crop_stages=CROP_STAGES)
 
+    @app.get("/api/weather-by-ip")
+    @login_required
+    def weather_by_ip():
+        try:
+            req=urllib.request.Request("https://ipwho.is/",headers={"User-Agent":"AgriWise/1.0"})
+            with urllib.request.urlopen(req,timeout=8) as response:
+                geo=json.load(response)
+            if not geo.get("success") or geo.get("latitude") is None or geo.get("longitude") is None:
+                raise ValueError("IP location unavailable")
+            lat=float(geo["latitude"]); lon=float(geo["longitude"])
+            name=geo.get("city") or geo.get("region") or "Current area"
+            country=geo.get("country") or ""
+            place={"name":name,"country":country,"latitude":lat,"longitude":lon}
+            data=fetch_weather(place)
+            data["condition"]=weather_condition(data)
+            data["live"]=True
+            data["location_source"]="approximate IP location"
+            return jsonify(data)
+        except Exception:
+            return jsonify({"error":"Approximate location weather is temporarily unavailable."}),503
+
     @app.get("/api/weather")
     @login_required
     def weather_api():
