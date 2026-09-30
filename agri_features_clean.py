@@ -202,32 +202,72 @@ def register_agri_features(app,db):
             return jsonify({"results":[]})
 
     DISPLAY_WEATHER = {
-        "Pudukkottai": {"temperature": 32, "humidity": 62, "rain": 0.0, "wind": 14, "condition": "Sunny", "icon": "☀️"},
-        "Chennai": {"temperature": 33, "humidity": 68, "rain": 0.2, "wind": 18, "condition": "Partly cloudy", "icon": "⛅"},
-        "Coimbatore": {"temperature": 30, "humidity": 58, "rain": 0.4, "wind": 12, "condition": "Mostly sunny", "icon": "🌤️"},
-        "Madurai": {"temperature": 34, "humidity": 55, "rain": 0.0, "wind": 16, "condition": "Sunny", "icon": "☀️"},
-        "Vijayawada": {"temperature": 32, "humidity": 64, "rain": 0.3, "wind": 15, "condition": "Partly cloudy", "icon": "⛅"},
-        "Hyderabad": {"temperature": 31, "humidity": 52, "rain": 0.0, "wind": 13, "condition": "Mostly sunny", "icon": "🌤️"},
-        "Bengaluru": {"temperature": 27, "humidity": 61, "rain": 0.8, "wind": 11, "condition": "Cloudy", "icon": "☁️"},
-        "Delhi": {"temperature": 30, "humidity": 48, "rain": 0.0, "wind": 10, "condition": "Sunny", "icon": "☀️"},
+        "Pudukkottai": {"temperature": 32, "humidity": 62, "rain": 0.0, "wind": 14, "condition": "Sunny", "icon": "☀️", "day": "A warm and mostly clear day. Good for routine farm work with normal soil-moisture checks."},
+        "Chennai": {"temperature": 33, "humidity": 68, "rain": 0.2, "wind": 18, "condition": "Partly cloudy", "icon": "⛅", "day": "A warm partly cloudy day with a small chance of rain. Morning and evening field work is comfortable."},
+        "Coimbatore": {"temperature": 30, "humidity": 58, "rain": 0.4, "wind": 12, "condition": "Mostly sunny", "icon": "🌤️", "day": "A pleasant mostly sunny day. Irrigation should follow soil moisture and crop stage."},
+        "Madurai": {"temperature": 34, "humidity": 55, "rain": 0.0, "wind": 16, "condition": "Sunny", "icon": "☀️", "day": "A hot sunny day. Keep irrigation and midday heat protection in mind."},
+        "Vijayawada": {"temperature": 32, "humidity": 64, "rain": 0.3, "wind": 15, "condition": "Partly cloudy", "icon": "⛅", "day": "A warm partly cloudy day with light rain possibility."},
+        "Hyderabad": {"temperature": 31, "humidity": 52, "rain": 0.0, "wind": 13, "condition": "Mostly sunny", "icon": "🌤️", "day": "A mostly sunny day with moderate humidity and suitable conditions for routine work."},
+        "Bengaluru": {"temperature": 27, "humidity": 61, "rain": 0.8, "wind": 11, "condition": "Cloudy", "icon": "☁️", "day": "A cooler cloudy day with a chance of light rain. Check field drainage before irrigation."},
+        "Delhi": {"temperature": 30, "humidity": 48, "rain": 0.0, "wind": 10, "condition": "Sunny", "icon": "☀️", "day": "A clear and dry day. Monitor soil moisture before watering crops."},
+    }
+
+    WEATHER_I18N = {
+        "English": {
+            "Sunny":"Sunny","Mostly sunny":"Mostly sunny","Partly cloudy":"Partly cloudy","Cloudy":"Cloudy",
+            "Recorded weather":"Recorded weather","Recorded snapshot":"Recorded weather snapshot",
+            "Farm-friendly conditions":"Farm-friendly conditions","Weather is suitable for routine farm work. Check soil moisture before irrigation.":"Weather is suitable for routine farm work. Check soil moisture before irrigation.",
+            "Hot day":"Hot day","Warm day":"Warm day","Cool day":"Cool day","Dry day":"Dry day",
+            "day":"How was the day?","recorded":"Recorded weather • farmer-friendly summary"
+        },
+        "తెలుగు": {
+            "Sunny":"ఎండగా ఉంది","Mostly sunny":"ఎక్కువగా ఎండగా ఉంది","Partly cloudy":"పాక్షికంగా మేఘావృతం","Cloudy":"మేఘావృతం",
+            "Recorded weather":"రికార్డ్ చేసిన వాతావరణం","Recorded snapshot":"రికార్డ్ చేసిన వాతావరణ సమాచారం",
+            "Farm-friendly conditions":"వ్యవసాయానికి అనుకూల పరిస్థితులు","Weather is suitable for routine farm work. Check soil moisture before irrigation.":"సాధారణ వ్యవసాయ పనులకు అనుకూలం. నీటిపారుదల ముందు నేల తేమను పరిశీలించండి.",
+            "Hot day":"వేడి రోజు","Warm day":"వెచ్చని రోజు","Cool day":"చల్లని రోజు","Dry day":"పొడి రోజు",
+            "day":"ఈ రోజు ఎలా ఉంది?","recorded":"రికార్డ్ చేసిన వాతావరణం • రైతులకు అనుకూల సారాంశం"
+        },
+        "தமிழ்": {
+            "Sunny":"வெயில்","Mostly sunny":"பெரும்பாலும் வெயில்","Partly cloudy":"பகுதி மேகமூட்டம்","Cloudy":"மேகமூட்டம்",
+            "Recorded weather":"பதிவு செய்யப்பட்ட வானிலை","Recorded snapshot":"பதிவு செய்யப்பட்ட வானிலை தகவல்",
+            "Farm-friendly conditions":"விவசாயத்திற்கு ஏற்ற நிலை","Weather is suitable for routine farm work. Check soil moisture before irrigation.":"வழக்கமான விவசாய பணிகளுக்கு ஏற்றது. பாசனத்திற்கு முன் மண் ஈரப்பதத்தை சரிபார்க்கவும்.",
+            "Hot day":"சூடான நாள்","Warm day":"வெப்பமான நாள்","Cool day":"குளிர்ந்த நாள்","Dry day":"வறண்ட நாள்",
+            "day":"இன்று நாள் எப்படி இருந்தது?","recorded":"பதிவு வானிலை • விவசாயி நட்பு சுருக்கம்"
+        },
+        "हिन्दी": {
+            "Sunny":"धूप","Mostly sunny":"ज्यादातर धूप","Partly cloudy":"आंशिक बादल","Cloudy":"बादल",
+            "Recorded weather":"रिकॉर्ड किया गया मौसम","Recorded snapshot":"रिकॉर्ड किया गया मौसम विवरण",
+            "Farm-friendly conditions":"खेती के लिए अनुकूल स्थिति","Weather is suitable for routine farm work. Check soil moisture before irrigation.":"सामान्य खेती के काम के लिए अनुकूल। सिंचाई से पहले मिट्टी की नमी जांचें।",
+            "Hot day":"गर्म दिन","Warm day":"गर्म दिन","Cool day":"ठंडा दिन","Dry day":"सूखा दिन",
+            "day":"आज का दिन कैसा रहा?","recorded":"रिकॉर्ड मौसम • किसान-अनुकूल सारांश"
+        },
+        "ಕನ್ನಡ": {
+            "Sunny":"ಬಿಸಿಲು","Mostly sunny":"ಹೆಚ್ಚಾಗಿ ಬಿಸಿಲು","Partly cloudy":"ಭಾಗಶಃ ಮೋಡ","Cloudy":"ಮೋಡ ಕವಿದಿದೆ",
+            "Recorded weather":"ದಾಖಲಿಸಿದ ಹವಾಮಾನ","Recorded snapshot":"ದಾಖಲಿಸಿದ ಹವಾಮಾನ ಮಾಹಿತಿ",
+            "Farm-friendly conditions":"ಕೃಷಿಗೆ ಅನುಕೂಲಕರ ಸ್ಥಿತಿ","Weather is suitable for routine farm work. Check soil moisture before irrigation.":"ಸಾಮಾನ್ಯ ಕೃಷಿ ಕೆಲಸಗಳಿಗೆ ಅನುಕೂಲ. ನೀರಾವರಿ ಮೊದಲು ಮಣ್ಣಿನ ತೇವಾಂಶ ಪರಿಶೀಲಿಸಿ.",
+            "Hot day":"ಬಿಸಿ ದಿನ","Warm day":"ಬೆಚ್ಚಗಿನ ದಿನ","Cool day":"ತಂಪಾದ ದಿನ","Dry day":"ಒಣ ದಿನ",
+            "day":"ಇಂದು ದಿನ ಹೇಗಿತ್ತು?","recorded":"ದಾಖಲಿಸಿದ ಹವಾಮಾನ • ರೈತ ಸ್ನೇಹಿ ಸಾರಾಂಶ"
+        },
+        "മലയാളം": {
+            "Sunny":"വെയിൽ","Mostly sunny":"കൂടുതൽ വെയിൽ","Partly cloudy":"ഭാഗികമായി മേഘാവൃതം","Cloudy":"മേഘാവൃതം",
+            "Recorded weather":"രേഖപ്പെടുത്തിയ കാലാവസ്ഥ","Recorded snapshot":"രേഖപ്പെടുത്തിയ കാലാവസ്ഥാ വിവരം",
+            "Farm-friendly conditions":"കൃഷിക്ക് അനുയോജ്യമായ സ്ഥിതി","Weather is suitable for routine farm work. Check soil moisture before irrigation.":"സാധാരണ കൃഷിപ്പണികൾക്ക് അനുയോജ്യം. ജലസേചനത്തിന് മുമ്പ് മണ്ണിലെ ഈർപ്പം പരിശോധിക്കുക.",
+            "Hot day":"ചൂടുള്ള ദിവസം","Warm day":"ചൂടേറിയ ദിവസം","Cool day":"തണുത്ത ദിവസം","Dry day":"വരണ്ട ദിവസം",
+            "day":"ഇന്ന് ദിവസം എങ്ങനെയായിരുന്നു?","recorded":"രേഖപ്പെടുത്തിയ കാലാവസ്ഥ • കർഷക സൗഹൃദ സംഗ്രഹം"
+        }
     }
 
     def display_weather(place_name):
         name = place_name or "Pudukkottai"
-        key = next((k for k in DISPLAY_WEATHER if k.lower() == name.lower()), "Pudukkottai")
-        base = DISPLAY_WEATHER[key]
-        temp = base["temperature"]
-        humidity = base["humidity"]
-        rain = base["rain"]
-        wind = base["wind"]
-        alerts = []
+        key = next((k for k in DISPLAY_WEATHER if k.lower() == name.lower()), None)
+        base = DISPLAY_WEATHER[key] if key else DISPLAY_WEATHER["Pudukkottai"]
+        display_name = name if key is None else key
+        language = session.get("site_language", "English")
+        trans = WEATHER_I18N.get(language, WEATHER_I18N["English"])
+        temp, humidity, rain, wind = base["temperature"], base["humidity"], base["rain"], base["wind"]
+        alerts = [( "🌱", trans["Farm-friendly conditions"], trans["Weather is suitable for routine farm work. Check soil moisture before irrigation."])]
         if temp >= 35:
-            alerts.append(("🌡️", "Heat alert", "Check soil moisture more often and avoid unnecessary midday field work."))
-        elif rain > 2:
-            alerts.append(("🌧️", "Rain alert", "Plan field work around rainfall and check field drainage."))
-        else:
-            alerts.append(("🌱", "Farm-friendly conditions", "Weather is suitable for routine farm work. Check soil moisture before irrigation."))
-
+            alerts = [("🌡️", trans["Hot day"], trans["Weather is suitable for routine farm work. Check soil moisture before irrigation."])]
         daily = []
         patterns = [
             (0, temp, max(20, temp - 5), base["condition"], base["icon"], 15, rain),
@@ -242,30 +282,19 @@ def register_agri_features(app,db):
         for offset, high, low, label, icon, probability, rain_mm in patterns:
             daily.append({
                 "date": (date.today() + timedelta(days=offset)).strftime("%d %b"),
-                "icon": icon, "label": label, "max": high, "min": low,
+                "icon": icon, "label": trans.get(label, label), "max": high, "min": low,
                 "rain_probability": probability, "rain_mm": rain_mm
             })
-
-        place = {"name": key, "country": "India", "latitude": None, "longitude": None}
+        place = {"name": display_name, "country": "India", "latitude": None, "longitude": None}
         return {
-            "place": place,
-            "current": {
-                "temperature_2m": temp,
-                "relative_humidity_2m": humidity,
-                "precipitation": rain,
-                "wind_speed_10m": wind
-            },
-            "display_only": True,
+            "place": place, "display_only": True,
+            "record_label": trans["recorded"],
+            "day_summary": base["day"],
+            "current": {"temperature_2m": temp, "relative_humidity_2m": humidity, "precipitation": rain, "wind_speed_10m": wind},
             "condition": {
-                "icon": base["icon"],
-                "label": base["condition"],
-                "description": "Farmer-friendly weather display for the selected location.",
-                "temperature": temp,
-                "rain_mm": rain,
-                "rain_probability": daily[0]["rain_probability"],
-                "wind": wind,
-                "alerts": alerts,
-                "daily": daily
+                "icon":base["icon"], "label":trans.get(base["condition"], base["condition"]),
+                "description":base["day"], "temperature":temp, "rain_mm":rain,
+                "rain_probability":daily[0]["rain_probability"], "wind":wind, "alerts":alerts, "daily":daily
             }
         }
 
@@ -282,7 +311,9 @@ def register_agri_features(app,db):
             location=place["name"],
             weather_condition=data["condition"],
             selected_place=place,
-            crops={name: {} for name in CROP_WATER_MM}
+            crops={name: {} for name in CROP_WATER_MM},
+            soil_profiles=SOIL_PROFILES,
+            crop_stages=CROP_STAGES
         )
 
     @app.get("/api/weather")
