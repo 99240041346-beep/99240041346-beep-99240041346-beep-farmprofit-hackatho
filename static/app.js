@@ -223,13 +223,13 @@
     }
     const crop = document.getElementById("irrigationCrop")?.value || "Rice";
     const soil = document.getElementById("irrigationSoil")?.value || "Loamy";
-    const area = Math.max(Number(document.getElementById("irrigationArea")?.value || 1), 0.1);
+    const area = Math.max(Number(document.getElementById("irrigationArea")?.value || 1), 0.1);\n    const stage = document.getElementById("irrigationStage")?.value || "Vegetative";
     if (irrigationBtn) { irrigationBtn.disabled = true; irrigationBtn.textContent = "Calculating…"; }
     if (irrigationStatus) irrigationStatus.textContent = "Combining forecast, crop and soil characteristics…";
     try {
       const params = new URLSearchParams({
         lat: selectedWeatherLocation.latitude, lon: selectedWeatherLocation.longitude,
-        name: selectedWeatherLocation.name || "Selected farm", crop, soil, area
+        name: selectedWeatherLocation.name || "Selected farm", crop, soil, stage, area
       });
       const response = await fetch("/api/irrigation?" + params.toString());
       const data = await response.json();
@@ -262,6 +262,12 @@
   }
 
   if (locationSearch) locationSearch.addEventListener("click", searchFarmLocation);
+  if (window.WEATHER_PAGE && window.WEATHER_PAGE.selectedPlace) {
+    selectedWeatherLocation = window.WEATHER_PAGE.selectedPlace;
+    if (locationInput) locationInput.value = locationLabel(selectedWeatherLocation);
+    if (selectedLocation) selectedLocation.textContent = "✓ " + locationLabel(selectedWeatherLocation);
+    localStorage.setItem("agriwise-weather-location", JSON.stringify(selectedWeatherLocation));
+  }
   if (locationInput) locationInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") { event.preventDefault(); searchFarmLocation(); }
   });
