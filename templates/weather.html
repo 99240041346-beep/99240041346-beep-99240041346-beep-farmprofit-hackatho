@@ -181,22 +181,25 @@
 
   async function loadWeather(lat,lon){
     showLoading();
+    const currentUrl="https://api.open-meteo.com/v1/forecast?latitude="+encodeURIComponent(lat)+"&longitude="+encodeURIComponent(lon)+"&current=temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,weather_code&timezone=auto";
+    try{
+      // Fast path: tiny current-conditions request directly from Open-Meteo.
+      const direct=await fetch(currentUrl,{cache:"no-store",priority:"high"});
+      const data=await direct.json();
+      if(!direct.ok || data.error || !data.current) throw new Error("direct current weather failed");
+      render(data,lat,lon);
+      // Forecast is deliberately non-blocking.
+      fetch("/api/weather-forecast?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"})
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(forecast){if(forecast&&forecast.daily){renderForecast(forecast);generateFarmerAlerts(forecast);}})
+        .catch(function(){});
+      return;
+    }catch(e){}
+    // Server fallback.
     try{
       const response=await fetch("/api/weather?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"});
       const data=await response.json();
-      if(!response.ok || data.error || !data.current) throw new Error("current weather failed");
-      render(data,lat,lon);
-      fetch("/api/weather-forecast?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"})
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(forecast){
-          if(forecast && forecast.daily){ renderForecast(forecast); generateFarmerAlerts(forecast); }
-        }).catch(function(){});
-      return;
-    }catch(e){}
-    try{
-      const direct=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+encodeURIComponent(lat)+"&longitude="+encodeURIComponent(lon)+"&current=temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,weather_code&timezone=auto",{cache:"no-store"});
-      const data=await direct.json();
-      if(!direct.ok || data.error || !data.current) throw new Error("direct weather failed");
+      if(!response.ok || data.error || !data.current) throw new Error("server weather failed");
       render(data,lat,lon);
     }catch(e){
       showError("Live weather is temporarily unavailable. Check your internet connection and try again.");
@@ -236,7 +239,7 @@
           }
         });
       },
-      {enableHighAccuracy:false,timeout:6000,maximumAge:600000}
+      {enableHighAccuracy:false,timeout:3500,maximumAge:900000}
     );
   };
 
