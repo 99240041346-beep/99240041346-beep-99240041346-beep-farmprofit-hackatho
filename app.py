@@ -36,12 +36,12 @@ login_manager.login_message_category = "error"
 # Global AgriWise language support
 SITE_LANGUAGES = ["English", "తెలుగు", "தமிழ்", "हिन्दी", "ಕನ್ನಡ", "മലയാളം"]
 SITE_TEXT = {
-    "English": {"dashboard":"Dashboard","weather":"Weather & Alerts","soil":"Soil & Irrigation","equipment":"Equipment Rental","rentals":"My Rentals","assistant":"Agri AI Chatbot","profit":"Profit Predictor","whatif":"What-if Simulator","compare":"Compare Crops","history":"History","reports":"Reports","logout":"Logout","language":"Language"},
+    "English": {"dashboard":"Dashboard","weather":"Weather & Alerts","soil":"Soil & Irrigation","equipment":"Equipment Rental","rentals":"My Rentals","assistant":"Agri AI Chatbot","profit":"Profit Predictor","compare":"Compare Crops","history":"History","reports":"Reports","logout":"Logout","language":"Language"},
     "తెలుగు": {"dashboard":"డాష్‌బోర్డ్","weather":"వాతావరణం & హెచ్చరికలు","soil":"నేల & నీటిపారుదల","equipment":"పరికరాల అద్దె","rentals":"నా అద్దెలు","assistant":"అగ్రి AI చాట్‌బాట్","profit":"లాభ అంచనా","whatif":"ఏమైతే సిమ్యులేటర్","compare":"పంటల పోలిక","history":"చరిత్ర","reports":"రిపోర్టులు","logout":"లాగ్ అవుట్","language":"భాష"},
-    "தமிழ்": {"dashboard":"டாஷ்போர்டு","weather":"வானிலை & எச்சரிக்கைகள்","soil":"மண் & பாசனம்","equipment":"விவசாய கருவி வாடகை","rentals":"என் வாடகைகள்","assistant":"அக்ரி AI சாட்பாட்","profit":"லாப கணிப்பு","whatif":"என்ன ஆகும் சிமுலேட்டர்","compare":"பயிர் ஒப்பீடு","history":"வரலாறு","reports":"அறிக்கைகள்","logout":"வெளியேறு","language":"மொழி"},
-    "हिन्दी": {"dashboard":"डैशबोर्ड","weather":"मौसम और अलर्ट","soil":"मिट्टी और सिंचाई","equipment":"कृषि उपकरण किराया","rentals":"मेरी बुकिंग","assistant":"एग्री AI चैटबॉट","profit":"लाभ अनुमान","whatif":"व्हाट-इफ सिम्युलेटर","compare":"फसल तुलना","history":"इतिहास","reports":"रिपोर्ट","logout":"लॉग आउट","language":"भाषा"},
-    "ಕನ್ನಡ": {"dashboard":"ಡ್ಯಾಶ್‌ಬೋರ್ಡ್","weather":"ಹವಾಮಾನ & ಎಚ್ಚರಿಕೆಗಳು","soil":"ಮಣ್ಣು & ನೀರಾವರಿ","equipment":"ಕೃಷಿ ಉಪಕರಣ ಬಾಡಿಗೆ","rentals":"ನನ್ನ ಬಾಡಿಗೆಗಳು","assistant":"ಅಗ್ರಿ AI ಚಾಟ್‌ಬಾಟ್","profit":"ಲಾಭ ಅಂದಾಜು","whatif":"ವಾಟ್-ಇಫ್ ಸಿಮ್ಯುಲೇಟರ್","compare":"ಬೆಳೆ ಹೋಲಿಕೆ","history":"ಇತಿಹಾಸ","reports":"ವರದಿಗಳು","logout":"ಲಾಗ್ ಔಟ್","language":"ಭಾಷೆ"},
-    "മലയാളം": {"dashboard":"ഡാഷ്ബോർഡ്","weather":"കാലാവസ്ഥ & മുന്നറിയിപ്പുകൾ","soil":"മണ്ണ് & ജലസേചനം","equipment":"കാർഷിക ഉപകരണ വാടക","rentals":"എന്റെ വാടകകൾ","assistant":"അഗ്രി AI ചാറ്റ്ബോട്ട്","profit":"ലാഭ പ്രവചനം","whatif":"വാട്ട്-ഇഫ് സിമുലേറ്റർ","compare":"വിള താരതമ്യം","history":"ചരിത്രം","reports":"റിപ്പോർട്ടുകൾ","logout":"ലോഗ് ഔട്ട്","language":"ഭാഷ"}
+    "தமிழ்": {"dashboard":"டாஷ்போர்டு","weather":"வானிலை & எச்சரிக்கைகள்","soil":"மண் & பாசனம்","equipment":"விவசாய கருவி வாடகை","rentals":"என் வாடகைகள்","assistant":"அக்ரி AI சாட்பாட்","profit":"லாப கணிப்பு","compare":"பயிர் ஒப்பீடு","history":"வரலாறு","reports":"அறிக்கைகள்","logout":"வெளியேறு","language":"மொழி"},
+    "हिन्दी": {"dashboard":"डैशबोर्ड","weather":"मौसम और अलर्ट","soil":"मिट्टी और सिंचाई","equipment":"कृषि उपकरण किराया","rentals":"मेरी बुकिंग","assistant":"एग्री AI चैटबॉट","profit":"लाभ अनुमान","compare":"फसल तुलना","history":"इतिहास","reports":"रिपोर्ट","logout":"लॉग आउट","language":"भाषा"},
+    "ಕನ್ನಡ": {"dashboard":"ಡ್ಯಾಶ್‌ಬೋರ್ಡ್","weather":"ಹವಾಮಾನ & ಎಚ್ಚರಿಕೆಗಳು","soil":"ಮಣ್ಣು & ನೀರಾವರಿ","equipment":"ಕೃಷಿ ಉಪಕರಣ ಬಾಡಿಗೆ","rentals":"ನನ್ನ ಬಾಡಿಗೆಗಳು","assistant":"ಅಗ್ರಿ AI ಚಾಟ್‌ಬಾಟ್","profit":"ಲಾಭ ಅಂದಾಜು","compare":"ಬೆಳೆ ಹೋಲಿಕೆ","history":"ಇತಿಹಾಸ","reports":"ವರದಿಗಳು","logout":"ಲಾಗ್ ಔಟ್","language":"ಭಾಷೆ"},
+    "മലയാളം": {"dashboard":"ഡാഷ്ബോർഡ്","weather":"കാലാവസ്ഥ & മുന്നറിയിപ്പുകൾ","soil":"മണ്ണ് & ജലസേചനം","equipment":"കാർഷിക ഉപകരണ വാടക","rentals":"എന്റെ വാടകകൾ","assistant":"അഗ്രി AI ചാറ്റ്ബോട്ട്","profit":"ലാഭ പ്രവചനം","compare":"വിള താരതമ്യം","history":"ചരിത്രം","reports":"റിപ്പോർട്ടുകൾ","logout":"ലോഗ് ഔട്ട്","language":"ഭാഷ"}
 }
 
 @app.context_processor
@@ -428,38 +428,6 @@ def simulator():
 
     return render_template("simulator.html", result=result, form=form)
 
-
-@app.route("/what-if", methods=["GET", "POST"])
-@login_required
-def what_if():
-    form = {
-        "crop": "Rice",
-        "area": "5",
-        "yield_per_acre": str(CROPS["Rice"]["yield"]),
-        "price": str(CROPS["Rice"]["price"]),
-        **{key: str(default) for key, _, default in COST_FIELDS},
-        "yield_change": "0",
-        "price_change": "0",
-        "cost_change": "0",
-    }
-    result = None
-    baseline = None
-    if request.method == "POST":
-        form.update(request.form.to_dict())
-        baseline = calculate(form)
-        yield_change = nfloat(form.get("yield_change"), 0)
-        price_change = nfloat(form.get("price_change"), 0)
-        cost_change = nfloat(form.get("cost_change"), 0)
-        scenario = dict(form)
-        scenario["yield_per_acre"] = baseline["yield_per_acre"] * (1 + yield_change / 100)
-        scenario["price"] = baseline["price"] * (1 + price_change / 100)
-        for key, _, _ in COST_FIELDS:
-            scenario[key] = baseline[key] * (1 + cost_change / 100)
-        result = calculate(scenario)
-        result["baseline_profit"] = baseline["profit"]
-        result["profit_change"] = result["profit"] - baseline["profit"]
-        result["profit_change_pct"] = (result["profit_change"] / baseline["profit"] * 100) if baseline["profit"] else 0
-    return render_template("simulator.html", result=result, baseline=baseline, form=form, what_if_only=True)
 
 @app.route("/compare")
 @login_required
