@@ -296,11 +296,6 @@ def register_agri_features(app, db):
                 answer = "I can help with weather alerts, irrigation planning, crops, farming operations and agricultural equipment rentals. Try asking a specific question."
         return render_template("assistant.html", answer=answer, question=question)
 
-    @app.get("/api/weather")
-    @login_required
-    def weather_api():
-        return jsonify({"message": "Use /weather for the live dashboard."})
-
     @app.context_processor
     def agri_globals():
         return {"agri_nav": True}
