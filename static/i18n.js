@@ -13,5 +13,9 @@ const WEATHER_I18N={
 };
 Object.keys(WEATHER_I18N).forEach(k=>Object.assign(D[k],WEATHER_I18N[k]));
 function run(){const lang=(document.body&&document.body.dataset.siteLanguage)||"English",d=D[lang];if(!d)return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);const a=[];let n;while(n=w.nextNode()){if(n.parentElement&&!["SCRIPT","STYLE"].includes(n.parentElement.tagName))a.push(n)}a.forEach(x=>{let s=x.nodeValue;Object.keys(d).sort((a,b)=>b.length-a.length).forEach(k=>{if(s.includes(k))s=s.split(k).join(d[k])});x.nodeValue=s});document.querySelectorAll("option,button,input[placeholder],textarea[placeholder]").forEach(e=>{const key=(e.textContent||e.getAttribute("placeholder")||"").trim();if(d[key]){if(e.tagName==="OPTION"||e.tagName==="BUTTON")e.textContent=d[key];else e.setAttribute("placeholder",d[key])}})}
-document.addEventListener("DOMContentLoaded",run);
+document.addEventListener("DOMContentLoaded",function(){
+  run();
+  var observer=new MutationObserver(function(){clearTimeout(window.__agriI18nTimer);window.__agriI18nTimer=setTimeout(run,120);});
+  observer.observe(document.body,{childList:true,subtree:true});
+});
 })();
