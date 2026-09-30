@@ -208,24 +208,31 @@
     }
   }
 
-  async function searchFarmLocation() {
-    const q = locationInput ? locationInput.value.trim() : "";
+  const DISPLAY_LOCATIONS = [
+    {name:"Pudukkottai",admin1:"Tamil Nadu",country:"India",latitude:10.3797,longitude:78.8208},
+    {name:"Chennai",admin1:"Tamil Nadu",country:"India",latitude:13.0827,longitude:80.2707},
+    {name:"Coimbatore",admin1:"Tamil Nadu",country:"India",latitude:11.0168,longitude:76.9558},
+    {name:"Madurai",admin1:"Tamil Nadu",country:"India",latitude:9.9252,longitude:78.1198},
+    {name:"Vijayawada",admin1:"Andhra Pradesh",country:"India",latitude:16.5062,longitude:80.6480},
+    {name:"Hyderabad",admin1:"Telangana",country:"India",latitude:17.3850,longitude:78.4867},
+    {name:"Bengaluru",admin1:"Karnataka",country:"India",latitude:12.9716,longitude:77.5946},
+    {name:"Delhi",admin1:"Delhi",country:"India",latitude:28.6139,longitude:77.2090}
+  ];
+
+  function searchFarmLocation() {
+    const q = locationInput ? locationInput.value.trim().toLowerCase() : "";
     if (q.length < 2) {
-      if (irrigationStatus) irrigationStatus.textContent = "Search for your village, town, district or city.";
+      if (irrigationStatus) irrigationStatus.textContent = "Type a village, town or city name.";
       return;
     }
-    if (locationSearch) { locationSearch.disabled = true; locationSearch.textContent = "Searching…"; }
-    try {
-      const response = await fetch("/api/location-search?q=" + encodeURIComponent(q));
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Location search failed");
-      renderLocationResults(data.results || []);
-      if (irrigationStatus) irrigationStatus.textContent = data.results && data.results.length ? "Choose your farm from the places below." : "No matching place found. Try the nearest town or district.";
-    } catch (error) {
-      if (irrigationStatus) irrigationStatus.textContent = "Try the village, town or district name again.";
-      
-    } finally {
-      if (locationSearch) { locationSearch.disabled = false; locationSearch.textContent = "Search location"; }
+    const results = DISPLAY_LOCATIONS.filter((place) =>
+      [place.name, place.admin1, place.country].some(value => String(value).toLowerCase().includes(q))
+    );
+    renderLocationResults(results);
+    if (irrigationStatus) {
+      irrigationStatus.textContent = results.length
+        ? "Choose a location to display its weather."
+        : "Try Pudukkottai, Chennai, Coimbatore, Madurai or another listed city.";
     }
   }
 
