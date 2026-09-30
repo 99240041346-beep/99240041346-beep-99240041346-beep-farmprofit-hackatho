@@ -9,15 +9,14 @@
 {% if weather and weather_condition %}
 <section class="panel weather-now-panel">
   <div class="weather-now-main"><div class="weather-icon-large">{{ weather_condition.icon }}</div><div><div class="eyebrow">LIVE WEATHER</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ weather_condition.description }}</p></div></div>
-  <div class="weather-alerts"><div class="eyebrow">FARM ALERTS</div>{% for alert in weather_condition.alerts %}<div class="weather-alert"><span>{{ alert[0] }}</span><div><strong>{{ alert[1] }}</strong><p>{{ alert[2] }}</p></div></div>{% endfor %}</div>
-</section>
+  </section>
 <div class="stats-grid weather-stats">
   <div class="stat-card"><span>🌡️ Temperature</span><strong>{{ weather.current.temperature_2m }}°C</strong></div>
   <div class="stat-card"><span>💧 Humidity</span><strong>{{ weather.current.relative_humidity_2m }}%</strong></div>
   <div class="stat-card"><span>🌧️ Rain</span><strong>{{ weather.current.precipitation }} mm</strong></div>
   <div class="stat-card"><span>💨 Wind</span><strong>{{ weather.current.wind_speed_10m }} km/h</strong></div>
 </div>
-<section class="panel"><div class="panel-head"><div><div class="eyebrow">TODAY</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ location }}</p></div></div><div class="weather-day-summary"><span>{{ weather_condition.icon }}</span><div><strong>{{ weather_condition.description }}</strong><p>Live weather for your current device location. Use the irrigation planner below only when you want crop- and soil-specific advice.</p></div></div></section>
+<section class="panel"><div class="panel-head"><div><div class="eyebrow">TODAY</div><h2>{{ weather_condition.label }} · {{ weather.current.temperature_2m }}°C</h2><p>{{ location }}</p></div></div><div class="weather-day-summary"><span>{{ weather_condition.icon }}</span><div><strong>{{ weather_condition.description }}</strong><p>Live conditions for your current location.</p></div></div></section>
 <section class="panel"><div class="panel-head"><div><div class="eyebrow">7-DAY FORECAST</div><h2>Upcoming weather</h2><p>Forecast data from the live weather service.</p></div></div><div class="forecast-grid">{% for day in weather_condition.daily %}<div class="forecast-card"><b>{{ day.date }}</b><span>{{ day.icon }}</span><strong>{{ day.label }}</strong><strong>{{ day.max }}° / {{ day.min }}°C</strong><small>Rain chance: {{ day.rain_probability }}%</small></div>{% endfor %}</div></section>
 {% endif %}
 {% endblock %}
