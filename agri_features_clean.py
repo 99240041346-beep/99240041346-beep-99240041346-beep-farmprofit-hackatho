@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from agri_chat import LANGUAGES, reply
 
 SOIL_PROFILES = {
+    "Black Soil": {"holding":"High","factor":0.92,"interval":"4–6 days","method":"Drip or controlled furrow","note":"Black soil stores substantial moisture; avoid heavy irrigation and waterlogging."},
     "Sandy": {"holding":"Low","factor":1.18,"interval":"1–2 days","method":"Drip or light, frequent irrigation","note":"Drains quickly, so smaller and more frequent irrigation is usually appropriate."},
     "Sandy Loam": {"holding":"Low–Medium","factor":1.08,"interval":"2–3 days","method":"Drip or sprinkler","note":"Good drainage with moderate storage; avoid long dry gaps."},
     "Loamy": {"holding":"Medium–High","factor":1.00,"interval":"3–4 days","method":"Drip, sprinkler or furrow","note":"Balanced drainage and storage; rainfall can extend the interval."},
@@ -304,28 +305,38 @@ def register_agri_features(app,db):
         lat=request.args.get("lat")
         lon=request.args.get("lon")
         location=request.args.get("location","Current location").strip() or "Current location"
-        try:
-            if lat is not None and lon is not None:
+        weather_data=None
+        condition=None
+        error=None
+        if lat is not None and lon is not None:
+            try:
                 place={"name":location,"country":"India","latitude":float(lat),"longitude":float(lon)}
-                data=fetch_weather(place)
-                condition=weather_condition(data)
-                data["condition"]=condition
-                data["live"]=True
-                return render_template("weather.html",weather=data,error=None,location=location,
-                    weather_condition=condition,selected_place=place,
-                    crops={name:{} for name in CROP_WATER_MM},soil_profiles=SOIL_PROFILES,crop_stages=CROP_STAGES)
-        except Exception:
-            pass
-        return render_template("weather.html",weather=None,error=None,location="Current location",
-            weather_condition=None,selected_place=None,crops={name:{} for name in CROP_WATER_MM},
-            soil_profiles=SOIL_PROFILES,crop_stages=CROP_STAGES)
-
+                weather_data=fetch_weather(place)
+                condition=weather_condition(weather_data)
+                weather_data["condition"]=condition
+                weather_data["live"]=True
+            except Exception:
+                error="Live weather is temporarily unavailable. Please allow location access and retry."
+        return render_template("weather.html",weather=weather_data,error=error,location=location,
+            weather_condition=condition,
+            selected_place={"name":location,"country":"India","latitude":lat,"longitude":lon} if lat and lon else None,
+            crops={name:{} for name in CROP_WATER_MM},soil_profiles=SOIL_PROFILES,crop_stages=CROP_STAGES)
 
     @app.get("/api/weather")
     @login_required
     def weather_api():
-        location = request.args.get("name", "Pudukkottai")
-        return jsonify(display_weather(location))
+        try:
+            lat=float(request.args["lat"]); lon=float(request.args["lon"])
+            name=request.args.get("name","Current location")
+            place={"name":name,"country":"India","latitude":lat,"longitude":lon}
+            data=fetch_weather(place)
+            data["condition"]=weather_condition(data)
+            data["live"]=True
+            return jsonify(data)
+        except (KeyError,TypeError,ValueError):
+            return jsonify({"error":"Live latitude and longitude are required."}),400
+        except Exception:
+            return jsonify({"error":"Live weather is temporarily unavailable. Please retry."}),503
 
     @app.get("/api/irrigation")
     @login_required
@@ -409,7 +420,7 @@ def register_agri_features(app,db):
             if question:
                 history=session["agri_chat"]
                 history.append({"role":"user","text":question})
-                history.append({"role":"assistant","text":reply(language,question)})
+                history.append({"role":"assistant","text":reply(language,question,history)})
                 session["agri_chat"]=history[-12:]
         return render_template("assistant.html",chat=session.get("agri_chat",[]),language=language)
     @app.context_processor
