@@ -3,7 +3,7 @@
 {% block content %}
 <section class="page-head"><div><p class="eyebrow">AGRI AI</p><h1>AgriWise Farming Chatbot</h1><p>Your farming companion for crops, weather, irrigation, soil, pests, markets and equipment.</p></div></section>
 <section class="panel chatbot-panel">
-  <div class="chatbot-head"><div class="assistant-avatar">🌱</div><div><h2>Ask your farming question</h2><p>Simple guidance for everyday farm decisions.</p></div></div>
+  <div class="chatbot-head"><div class="assistant-avatar">🌱</div><div><h2>Ask your farming question</h2><p>Simple guidance for everyday farm decisions.</p></div></div>\n  <form method="post" class="chat-language"><label>Language <select name="language" onchange="this.form.submit()">{% for lang in ["English","తెలుగు","தமிழ்","हिन्दी","ಕನ್ನಡ","മലയാളം"] %}<option value="{{ lang }}" {% if language == lang %}selected{% endif %}>{{ lang }}</option>{% endfor %}</select></label></form>
   <div class="chat-messages">{% for message in chat %}<div class="chat-message {{ message.role }}"><div class="chat-bubble">{{ message.text }}</div></div>{% endfor %}</div>
   <div class="chat-suggestions">
     <button type="button" data-chat-prompt="What should I do if rain is expected for my crop?">🌧️ Rain advice</button>
