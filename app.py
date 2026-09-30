@@ -540,7 +540,7 @@ Answer in the user's language when they ask in a regional language."""
                         answer += part["text"]
         if not answer:
             raise ValueError("Empty AI response")
-        return jsonify({"answer": answer, "model": payload["model"]})
+        sources = []\n        for item in result.get("output", []):\n            for part in item.get("content", []):\n                for ann in part.get("annotations", []) or []:\n                    if isinstance(ann, dict):\n                        url = ann.get("url") or ann.get("source", {}).get("url")\n                        title = ann.get("title") or ann.get("source", {}).get("title") or url\n                        if url and not any(s.get("url") == url for s in sources):\n                            sources.append({"title": title, "url": url})\n        return jsonify({"answer": answer, "model": payload["model"], "sources": sources[:6]})
     except Exception:
         return jsonify({"error": "The farmer AI service is temporarily unavailable. Please retry."}), 503
 
