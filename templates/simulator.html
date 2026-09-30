@@ -17,6 +17,19 @@
       }catch(e){$("weather-signal").textContent="Live weather could not be attached; crop and soil prediction is still available.";}
     },()=>{$("weather-signal").textContent="Location permission not granted; run prediction with crop, soil and stage inputs."},{timeout:3500,maximumAge:900000});
   }
+  $("askFarmerAI")?.addEventListener("click",async()=>{
+    const q=$("farmerQuestion").value.trim();
+    if(!q)return;
+    $("farmerAIAnswer").textContent="Thinking…";
+    try{
+      const r=await fetch("{{ url_for('api_ai_farmer') }}",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({
+        question:q,crop:$("crop").value,soil:$("soil").value,stage:$("stage").value,area:$("area").value,
+        temperature:$("temperature").value,humidity:$("humidity").value,rain:$("rain").value,rain_probability:$("rain_probability").value
+      })});
+      const d=await r.json();
+      $("farmerAIAnswer").textContent=d.answer||d.error||"AI response unavailable.";
+    }catch(e){$("farmerAIAnswer").textContent="AI connection failed. Please retry.";}
+  });
   $("aiPredictBtn")?.addEventListener("click",async()=>{
     const payload={
       crop:$("crop").value, area:$("area").value, price:$("price").value,
@@ -57,7 +70,14 @@
 <section class="results-column">
 <div class="result-hero {% if result and result.profit < 0 %}loss{% endif %}"><small>ESTIMATED NET PROFIT</small><div id="profit-display">₹{{ "{:,.0f}".format(result.profit) if result else "0" }}</div><p id="profit-message">{% if result %}{% if result.profit < 0 %}This plan is currently loss-making.{% else %}This plan is profitable under your assumptions.{% endif %}{% else %}Change the values to calculate your profit.{% endif %}</p></div>
 <div class="panel insight-panel" style="margin-top:14px"><div class="panel-head"><div><div class="eyebrow">AI DECISION ENGINE</div><h2>Farm prediction</h2><p id="ai-engine">Add your crop, soil and stage, then run the prediction.</p></div><strong id="ai-confidence">--</strong></div><div class="metric-grid mini"><div class="metric"><small>AI yield / acre</small><strong id="ai-yield">—</strong></div><div class="metric"><small>Predicted profit</small><strong id="ai-profit">—</strong></div><div class="metric"><small>Water / acre</small><strong id="ai-water">—</strong></div><div class="metric"><small>Risk</small><strong id="ai-risk">—</strong></div></div><div id="ai-insights" style="margin-top:14px"></div><div id="ai-irrigation" style="margin-top:10px;font-weight:600"></div></div><div class="metric-grid mini"><div class="metric"><small>Revenue</small><strong id="revenue-display">₹{{ "{:,.0f}".format(result.revenue) if result else "0" }}</strong></div><div class="metric"><small>Total Cost</small><strong id="cost-display">₹{{ "{:,.0f}".format(result.total_cost) if result else "0" }}</strong></div><div class="metric"><small>ROI</small><strong id="roi-display">{{ "{:.1f}".format(result.roi) if result else "0.0" }}%</strong></div><div class="metric"><small>Risk</small><strong id="risk-display">{{ result.risk if result else "—" }}</strong></div></div>
-<div class="panel insight-panel"><div class="panel-head"><div><div class="eyebrow">DECISION METRICS</div><h2>Break-even & production</h2></div></div><div class="break-grid"><div><span>Break-even price</span><b id="be-price">₹{{ "{:,.0f}".format(result.break_even_price) if result else "0" }}</b></div><div><span>Break-even yield</span><b id="be-yield">{{ "{:.2f}".format(result.break_even_yield) if result else "0.00" }}</b></div><div><span>Production</span><b id="production">{{ "{:,.1f}".format(result.production) if result else "0" }}</b></div><div><span>Margin</span><b id="margin">{{ "{:.1f}".format(result.margin) if result else "0.0" }}%</b></div></div></div>
+<div class="panel insight-panel"><div class="panel-head"><div><div class="eyebrow">DECISION METRICS</div><h2>Break-even & production</h2></div></div><div class="break-grid"><div><span>Break-even price</span><b id="be-price">₹{{ "{:,.0f}".format(result.break_even_price) if result else "0" }}</b></div><div><span>Break-even yield</span><b id="be-yield">{{ "{:.2f}".format(result.break_even_yield) if result else "0.00" }}</b></div><div><span>Production</span><b id="production">{{ "{:,.1f}".format(result.production) if result else "0" }}</b></div><div><span>Margin</span><b id="margin">{{ "{:.1f}".format(result.margin) if result else "0.0" }}%</b></div><div class="panel" style="margin-top:14px;border:1px solid #dcebd8">
+  <div class="panel-head"><div><div class="eyebrow">OPENAI FARMER AI</div><h2>Ask your farm AI</h2><p>Ask about irrigation, crop care, pests, soil, weather impact or your prediction.</p></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <input id="farmerQuestion" type="text" placeholder="Example: Should I irrigate my tomato crop today?" style="flex:1;min-width:240px">
+    <button class="btn btn-primary" type="button" id="askFarmerAI">Ask AI</button>
+  </div>
+  <div id="farmerAIAnswer" style="margin-top:12px;white-space:pre-wrap;line-height:1.6"></div>
+</div></div></div>
 </section></div>
 <section class="panel whatif" id="what-if"><div class="panel-head"><div><div class="eyebrow">WHAT-IF SIMULATOR</div><h2>Stress-test your assumptions</h2><p>Stress-test price, yield and production costs before you commit money to the crop.</p></div><span class="live-dot">● LIVE</span></div><div class="slider-grid"><label>Market price <output id="priceOut">0%</output><input id="priceSlider" type="range" min="-30" max="30" value="0"></label><label>Yield <output id="yieldOut">0%</output><input id="yieldSlider" type="range" min="-30" max="30" value="0"></label><label>Total costs <output id="costOut">0%</output><input id="costSlider" type="range" min="-30" max="30" value="0"></label></div><div class="whatif-result"><div><small>Scenario revenue</small><strong id="scenarioRevenue">₹0</strong></div><div><small>Scenario cost</small><strong id="scenarioCost">₹0</strong></div><div><small>Scenario profit</small><strong id="scenarioProfit">₹0</strong></div><div><small>Change vs baseline</small><strong id="scenarioChange">0%</strong></div><div><small>Scenario margin</small><strong id="scenarioMargin">0%</strong></div><div><small>Scenario risk</small><strong id="scenarioRisk">—</strong></div></div><div class="irrigation-disclaimer">Scenario values are mathematical projections from your baseline assumptions. Actual farm results vary with weather, pests, quality, market grade, timing, labour and local prices.</div></section>
 {% endblock %}
