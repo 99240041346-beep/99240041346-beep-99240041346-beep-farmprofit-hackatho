@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, text
@@ -31,10 +31,8 @@ login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "error"
 
 
-# Planning profiles use common Indian farm units: yield is quintals/acre and
-# market price is INR/quintal. Farmers can replace these starting estimates.
+# Global AgriWise language support
 SITE_LANGUAGES = ["English", "తెలుగు", "தமிழ்", "हिन्दी", "ಕನ್ನಡ", "മലയാളം"]
-
 SITE_TEXT = {
     "English": {"dashboard":"Dashboard","weather":"Weather & Alerts","soil":"Soil & Irrigation","equipment":"Equipment Rental","rentals":"My Rentals","assistant":"Agri AI Chatbot","profit":"Profit Predictor","whatif":"What-if Simulator","compare":"Compare Crops","history":"History","reports":"Reports","logout":"Logout","language":"Language"},
     "తెలుగు": {"dashboard":"డాష్‌బోర్డ్","weather":"వాతావరణం & హెచ్చరికలు","soil":"నేల & నీటిపారుదల","equipment":"పరికరాల అద్దె","rentals":"నా అద్దెలు","assistant":"అగ్రి AI చాట్‌బాట్","profit":"లాభ అంచనా","whatif":"ఏమైతే సిమ్యులేటర్","compare":"పంటల పోలిక","history":"చరిత్ర","reports":"రిపోర్టులు","logout":"లాగ్ అవుట్","language":"భాష"},
@@ -60,3 +58,403 @@ def set_language():
         session["agri_language"] = language
     return redirect(request.form.get("next") or url_for("dashboard"))
 
+
+# Planning profiles use common Indian farm units: yield is quintals/acre and
+# market price is INR/quintal. Farmers can replace these starting estimates.
+CROPS = {
+    "Rice": {"yield": 22, "price": 2400},
+    "Wheat": {"yield": 20, "price": 2300},
+    "Maize": {"yield": 25, "price": 2100},
+    "Cotton": {"yield": 8, "price": 6500},
+    "Sugarcane": {"yield": 350, "price": 360},
+    "Tomato": {"yield": 180, "price": 3200},
+    "Potato": {"yield": 240, "price": 1800},
+    "Groundnut": {"yield": 10, "price": 6200},
+}
+
+# Production costs are per acre so the model scales correctly with farm size.
+COST_FIELDS = [
+    ("seed", "Seed", 3000),
+    ("fertilizer", "Fertilizer", 5000),
+    ("pesticide", "Pesticide", 2500),
+    ("labor", "Labour", 6000),
+    ("machinery", "Machinery", 3000),
+    ("irrigation", "Irrigation", 2000),
+    ("transport", "Transport", 1800),
+    ("other", "Other", 1000),
+]
+
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(160), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    plans = db.relationship("FarmPlan", backref="owner", lazy=True, cascade="all, delete-orphan")
+
+
+class FarmPlan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    crop = db.Column(db.String(80), nullable=False)
+    area = db.Column(db.Float, nullable=False)
+    yield_per_acre = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    seed = db.Column(db.Float, default=0, nullable=False)
+    fertilizer = db.Column(db.Float, default=0, nullable=False)
+    pesticide = db.Column(db.Float, default=0, nullable=False)
+    labor = db.Column(db.Float, default=0, nullable=False)
+    machinery = db.Column(db.Float, default=0, nullable=False)
+    irrigation = db.Column(db.Float, default=0, nullable=False)
+    transport = db.Column(db.Float, default=0, nullable=False)
+    other = db.Column(db.Float, default=0, nullable=False)
+    revenue = db.Column(db.Float, nullable=False)
+    total_cost = db.Column(db.Float, nullable=False)
+    profit = db.Column(db.Float, nullable=False)
+    roi = db.Column(db.Float, nullable=False)
+    risk = db.Column(db.String(30), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        return db.session.get(User, int(user_id))
+    except (TypeError, ValueError):
+        return None
+
+
+def nfloat(value, default=0.0):
+    try:
+        number = float(value)
+        return max(number, 0.0)
+    except (TypeError, ValueError):
+        return default
+
+
+def calculate(data):
+    area = nfloat(data.get("area"), 5.0)
+    yield_per_acre = nfloat(data.get("yield_per_acre"), 22.0)
+    price = nfloat(data.get("price"), 2400.0)
+
+    # Costs are entered per acre; production and revenue scale with land area.
+    costs_per_acre = {key: nfloat(data.get(key), default) for key, _, default in COST_FIELDS}
+    production = area * yield_per_acre
+    revenue = production * price
+    total_cost = sum(costs_per_acre.values()) * area
+    profit = revenue - total_cost
+    roi = (profit / total_cost * 100) if total_cost else 0.0
+    margin = (profit / revenue * 100) if revenue else 0.0
+
+    if profit < 0 or margin < 10:
+        risk = "High"
+    elif margin < 25:
+        risk = "Medium"
+    else:
+        risk = "Low"
+
+    break_even_price = total_cost / production if production else 0.0
+    break_even_yield = total_cost / price / area if price and area else 0.0
+    cost_per_acre = total_cost / area if area else 0.0
+
+    return {
+        "area": area,
+        "yield_per_acre": yield_per_acre,
+        "price": price,
+        "production": production,
+        "revenue": revenue,
+        "total_cost": total_cost,
+        "profit": profit,
+        "roi": roi,
+        "margin": margin,
+        "risk": risk,
+        "break_even_price": break_even_price,
+        "break_even_yield": break_even_yield,
+        "cost_per_acre": cost_per_acre,
+        "revenue_per_acre": revenue / area if area else 0.0,
+        **costs_per_acre,
+    }
+
+
+def save_plan_from_result(form, result):
+    crop = form.get("crop", "Rice")
+    if crop not in CROPS:
+        crop = "Rice"
+    plan = FarmPlan(
+        user_id=current_user.id,
+        crop=crop,
+        area=result["area"],
+        yield_per_acre=result["yield_per_acre"],
+        price=result["price"],
+        seed=result["seed"],
+        fertilizer=result["fertilizer"],
+        pesticide=result["pesticide"],
+        labor=result["labor"],
+        machinery=result["machinery"],
+        irrigation=result["irrigation"],
+        transport=result["transport"],
+        other=result["other"],
+        revenue=result["revenue"],
+        total_cost=result["total_cost"],
+        profit=result["profit"],
+        roi=result["roi"],
+        risk=result["risk"],
+    )
+    db.session.add(plan)
+    db.session.commit()
+    return plan
+
+
+@app.context_processor
+def inject_globals():
+    return {"crops": CROPS, "cost_fields": COST_FIELDS, "now": datetime.utcnow()}
+
+
+@app.route("/")
+def index():
+    return redirect(url_for("dashboard")) if current_user.is_authenticated else render_template("landing.html")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+
+        if len(name) < 2:
+            flash("Enter a valid name.", "error")
+        elif "@" not in email or len(email) < 5:
+            flash("Enter a valid email address.", "error")
+        elif len(password) < 6:
+            flash("Password must contain at least 6 characters.", "error")
+        elif password != confirm:
+            flash("Passwords do not match.", "error")
+        elif User.query.filter(func.lower(User.email) == email).first():
+            flash("That email is already registered. Please log in.", "error")
+        else:
+            user = User(name=name, email=email, password_hash=generate_password_hash(password))
+            db.session.add(user)
+            db.session.commit()
+            login_user(user, remember=True)
+            flash("Account created successfully.", "success")
+            return redirect(url_for("dashboard"))
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        user = User.query.filter(func.lower(User.email) == email).first()
+
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user, remember=True)
+            flash("Welcome back!", "success")
+            next_url = request.args.get("next")
+            if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                return redirect(next_url)
+            return redirect(url_for("dashboard"))
+
+        flash("Invalid email or password.", "error")
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("You have been logged out.", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    plans = FarmPlan.query.filter_by(user_id=current_user.id).order_by(FarmPlan.created_at.desc()).all()
+    total_revenue = sum(p.revenue for p in plans)
+    total_cost = sum(p.total_cost for p in plans)
+    total_profit = sum(p.profit for p in plans)
+    avg_roi = sum(p.roi for p in plans) / len(plans) if plans else 0
+    return render_template(
+        "dashboard.html",
+        plans=plans[:5],
+        total_revenue=total_revenue,
+        total_cost=total_cost,
+        total_profit=total_profit,
+        avg_roi=avg_roi,
+    )
+
+
+@app.route("/simulator", methods=["GET", "POST"])
+@login_required
+def simulator():
+    result = None
+    form = {
+        "crop": "Rice",
+        "area": "5",
+        "yield_per_acre": "22",
+        "price": "2400",
+        **{key: str(default) for key, _, default in COST_FIELDS},
+    }
+
+    if request.method == "POST":
+        form.update(request.form.to_dict())
+        crop = form.get("crop", "Rice")
+        if crop in CROPS and not request.form.get("yield_per_acre"):
+            form["yield_per_acre"] = str(CROPS[crop]["yield"])
+        if crop in CROPS and not request.form.get("price"):
+            form["price"] = str(CROPS[crop]["price"])
+
+        result = calculate(form)
+
+        if request.form.get("save_plan") == "1":
+            save_plan_from_result(form, result)
+            flash("Farm analysis saved successfully.", "success")
+
+    return render_template("simulator.html", result=result, form=form)
+
+
+@app.route("/what-if", methods=["GET", "POST"])
+@login_required
+def what_if():
+    form = {
+        "crop": "Rice",
+        "area": "5",
+        "yield_per_acre": str(CROPS["Rice"]["yield"]),
+        "price": str(CROPS["Rice"]["price"]),
+        **{key: str(default) for key, _, default in COST_FIELDS},
+        "yield_change": "0",
+        "price_change": "0",
+        "cost_change": "0",
+    }
+    result = None
+    baseline = None
+    if request.method == "POST":
+        form.update(request.form.to_dict())
+        baseline = calculate(form)
+        yield_change = nfloat(form.get("yield_change"), 0)
+        price_change = nfloat(form.get("price_change"), 0)
+        cost_change = nfloat(form.get("cost_change"), 0)
+        scenario = dict(form)
+        scenario["yield_per_acre"] = baseline["yield_per_acre"] * (1 + yield_change / 100)
+        scenario["price"] = baseline["price"] * (1 + price_change / 100)
+        for key, _, _ in COST_FIELDS:
+            scenario[key] = baseline[key] * (1 + cost_change / 100)
+        result = calculate(scenario)
+        result["baseline_profit"] = baseline["profit"]
+        result["profit_change"] = result["profit"] - baseline["profit"]
+        result["profit_change_pct"] = (result["profit_change"] / baseline["profit"] * 100) if baseline["profit"] else 0
+    return render_template("simulator.html", result=result, baseline=baseline, form=form, what_if_only=True)
+
+@app.route("/compare")
+@login_required
+def compare():
+    results = []
+    for crop_name, crop in CROPS.items():
+        demo = {
+            "crop": crop_name,
+            "area": 5,
+            "yield_per_acre": crop["yield"],
+            "price": crop["price"],
+            "seed": 3000,
+            "fertilizer": 5000,
+            "pesticide": 2500,
+            "labor": 6000,
+            "machinery": 3000,
+            "irrigation": 2000,
+            "transport": 1800,
+            "other": 1000,
+        }
+        result = calculate(demo)
+        result["crop"] = crop_name
+        results.append(result)
+    results.sort(key=lambda item: item["profit"], reverse=True)
+    return render_template("compare.html", results=results)
+
+
+@app.route("/history")
+@login_required
+def history():
+    plans = FarmPlan.query.filter_by(user_id=current_user.id).order_by(FarmPlan.created_at.desc()).all()
+    return render_template("history.html", plans=plans)
+
+
+@app.post("/history/<int:plan_id>/delete")
+@login_required
+def delete_plan(plan_id):
+    plan = FarmPlan.query.filter_by(id=plan_id, user_id=current_user.id).first_or_404()
+    db.session.delete(plan)
+    db.session.commit()
+    flash("Saved analysis deleted.", "success")
+    return redirect(url_for("history"))
+
+
+@app.route("/report")
+@login_required
+def report():
+    plans = FarmPlan.query.filter_by(user_id=current_user.id).order_by(FarmPlan.created_at.desc()).all()
+    return render_template("report.html", plans=plans)
+
+
+@app.post("/api/calculate")
+@login_required
+def api_calculate():
+    data = request.get_json(silent=True) or request.form
+    return jsonify(calculate(data))
+
+
+@app.get("/health")
+def health():
+    try:
+        db.session.execute(text("SELECT 1"))
+        database = "ok"
+    except Exception:
+        database = "error"
+    return jsonify({"status": "ok", "application": "FarmProfit", "database": database})
+
+
+@app.errorhandler(404)
+def not_found(_error):
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_error(_error):
+    db.session.rollback()
+    return render_template("500.html"), 500
+
+
+def initialize_database():
+    with app.app_context():
+        db.create_all()
+        if os.environ.get("ENABLE_DEMO", "1") == "1":
+            demo_email = os.environ.get("DEMO_EMAIL", "demo@farmprofit.app").lower()
+            demo_password = os.environ.get("DEMO_PASSWORD", "Demo@12345")
+            if not User.query.filter_by(email=demo_email).first():
+                demo = User(
+                    name="Demo Farmer",
+                    email=demo_email,
+                    password_hash=generate_password_hash(demo_password),
+                )
+                db.session.add(demo)
+                db.session.commit()
+
+
+initialize_database()
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=True)
