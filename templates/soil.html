@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Soil & Irrigation Guide — AgriWise{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div><p class="eyebrow">FIELD INTELLIGENCE</p><h1>Soil & Irrigation Guide</h1><p>Understand how soil water-holding behaviour changes irrigation planning. Use the Weather page for a location-specific recommendation.</p></div>
+  <a class="btn btn-primary" href="{{ url_for('weather') }}">Open Irrigation Planner</a>
+</section>
+<section class="panel">
+  <div class="panel-head"><div><div class="eyebrow">SOIL PROFILES</div><h2>Choose the soil that matches your field</h2><p>These are planning characteristics. A soil test and field moisture check should override generic values.</p></div></div>
+  <div class="equipment-grid">
+  {% for name, p in profiles.items() %}
+    <article class="equipment-card">
+      <div class="equipment-icon">🪨</div>
+      <div class="equipment-main">
+        <span class="tag">{{ p.holding }} water holding</span>
+        <h2>{{ name }}</h2>
+        <p><b>Typical interval:</b> {{ p.interval }}</p>
+        <p><b>Method:</b> {{ p.method }}</p>
+        <p>{{ p.note }}</p>
+      </div>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+<section class="panel">
+  <div class="panel-head"><div><div class="eyebrow">CROP WATER DEMAND</div><h2>Baseline daily crop demand</h2><p>Approximate planning values before soil, growth stage, heat, humidity and rainfall adjustments.</p></div></div>
+  <div class="table-wrap"><table><thead><tr><th>Crop</th><th>Base demand</th><th>Unit</th></tr></thead><tbody>
+  {% for crop, mm in crop_water.items() %}<tr><td><b>{{ crop }}</b></td><td>{{ mm }}</td><td>mm/day</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="panel">
+  <div class="panel-head"><div><div class="eyebrow">GROWTH STAGES</div><h2>Why the same crop can need different water</h2></div></div>
+  <div class="chips">{% for stage, factor in stages.items() %}<span class="chip">{{ stage }} · {{ "%.0f"|format(factor*100) }}% baseline</span>{% endfor %}</div>
+</section>
+{% endblock %}
