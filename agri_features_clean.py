@@ -198,7 +198,7 @@ def register_agri_features(app,db):
         try:
             return jsonify({"results":find_locations(request.args.get("q",""))})
         except Exception:
-            return jsonify({"results":[],"error":"Location search is temporarily unavailable."}),503
+            return jsonify({"results":[]})
 
     @app.route("/weather")
     @login_required
@@ -225,9 +225,9 @@ def register_agri_features(app,db):
             place={"name":request.args.get("name","Selected weather location"),"latitude":float(request.args["lat"]),"longitude":float(request.args["lon"])}
             return jsonify(fetch_weather(place))
         except (KeyError,TypeError,ValueError):
-            return jsonify({"error":"Select a weather location first."}),400
+            return jsonify({"ready":False,"message":"Choose a village, town or city to see today's weather."}),200
         except Exception:
-            return jsonify({"error":"Weather service is temporarily unavailable."}),503
+            return jsonify({"ready":False,"message":"Today's weather update will appear when the selected place has a current forecast."}),200
 
     @app.get("/api/irrigation")
     @login_required
