@@ -203,6 +203,11 @@ def register_agri_features(app,db):
         except Exception:
             return jsonify({"error":"Irrigation data is temporarily unavailable."}),503
 
+    @app.route("/soil")
+    @login_required
+    def soil():
+        return render_template("soil.html", profiles=SOIL_PROFILES, crop_water=CROP_WATER_MM, stages=CROP_STAGES)
+
     @app.route("/equipment")
     @login_required
     def equipment():
