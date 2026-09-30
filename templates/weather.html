@@ -65,8 +65,20 @@
   function showError(message){
     loading.style.display="none";
     content.style.display="none";
-    errorText.textContent=message || "Allow location access and try again.";
+    errorText.textContent=message || "Live weather is temporarily unavailable.";
     errorBox.style.display="block";
+  }
+
+  async function loadByIP(){
+    try{
+      const response=await fetch("/api/weather-by-ip",{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if(!response.ok || data.error || !data.current) throw new Error("IP weather failed");
+      render(data,data.place.latitude,data.place.longitude);
+      document.getElementById("weather-location").textContent =
+        (data.place.name || "Current area")+" · approximate live location";
+      return true;
+    }catch(e){ return false; }
   }
 
   function showLoading(){
@@ -174,10 +186,14 @@
     navigator.geolocation.getCurrentPosition(
       function(pos){loadWeather(pos.coords.latitude,pos.coords.longitude);},
       function(err){
-        const msg=err.code===1
-          ? "Location access is blocked. Allow location permission for AgriWise, then click Try again."
-          : "Your current location could not be detected. Click Try again.";
-        showError(msg);
+        loadByIP().then(function(ok){
+          if(!ok){
+            const msg=err.code===1
+              ? "GPS permission is unavailable and approximate location could not be detected."
+              : "Your current location could not be detected.";
+            showError(msg);
+          }
+        });
       },
       {enableHighAccuracy:true,timeout:15000,maximumAge:300000}
     );
