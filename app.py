@@ -1,4 +1,6 @@
 import os
+import json
+import urllib.request
 from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, make_response
@@ -507,6 +509,71 @@ def delete_plan(plan_id):
 def report():
     plans = FarmPlan.query.filter_by(user_id=current_user.id).order_by(FarmPlan.created_at.desc()).all()
     return render_template("report.html", plans=plans)
+
+
+@app.post("/api/ai-farmer")
+@login_required
+def api_ai_farmer():
+    data = request.get_json(silent=True) or {}
+    question = str(data.get("question", "")).strip()
+    if not question:
+        return jsonify({"error": "Ask a farming question first."}), 400
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return jsonify({
+            "error": "AI farmer assistant is not connected yet. Add OPENAI_API_KEY in Render Environment Variables."
+        }), 503
+
+    context = {
+        "crop": data.get("crop", ""),
+        "soil": data.get("soil", ""),
+        "stage": data.get("stage", ""),
+        "area_acres": data.get("area", ""),
+        "temperature_c": data.get("temperature", ""),
+        "humidity_pct": data.get("humidity", ""),
+        "rain_mm": data.get("rain", ""),
+        "rain_probability_pct": data.get("rain_probability", ""),
+        "predicted_yield_q_per_acre": data.get("predicted_yield_per_acre", ""),
+        "predicted_profit_inr": data.get("profit", ""),
+        "water_need_litres_per_acre": data.get("water_need_litres_per_acre", "")
+    }
+    system = """You are AgriWise Farmer AI, a practical agriculture assistant.
+Use the supplied farm data as context. Give clear, actionable advice for a farmer.
+Do not invent sensor readings, market prices, diseases, pesticides, or weather facts.
+If a value is missing, say what is missing.
+For pesticide or chemical questions, recommend label-compliant, locally approved products and advise consulting a local agriculture officer when diagnosis is uncertain.
+Do not present financial, irrigation, yield, or crop outcomes as guaranteed.
+Prefer short sections: Assessment, What to do now, and Watch for.
+Answer in the user's language when they ask in a regional language."""
+    payload = {
+        "model": os.environ.get("OPENAI_FARMER_MODEL", "gpt-5.6-luna"),
+        "input": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": "Farm context:\n" + json.dumps(context, ensure_ascii=False) + "\n\nFarmer question:\n" + question}
+        ],
+        "max_output_tokens": 700
+    }
+    try:
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/responses",
+            data=body,
+            headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=20) as response:
+            result = json.load(response)
+        answer = result.get("output_text", "").strip()
+        if not answer:
+            for item in result.get("output", []):
+                for part in item.get("content", []):
+                    if part.get("type") == "output_text" and part.get("text"):
+                        answer += part["text"]
+        if not answer:
+            raise ValueError("Empty AI response")
+        return jsonify({"answer": answer, "model": payload["model"]})
+    except Exception:
+        return jsonify({"error": "The farmer AI service is temporarily unavailable. Please retry."}), 503
 
 
 @app.post("/api/ai-predict")
