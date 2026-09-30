@@ -79,6 +79,16 @@ KEYWORDS = {
 "crop":["crop","plant","sow","seed","పంట","విత్తనం","பயிர்","விதை","फसल","बीज","ಬೆಳೆ","വിള"]
 }
 
+def _entities(question, history=None):
+    text = " ".join([str(x.get("text","")) for x in (history or []) if isinstance(x, dict)] + [question or ""]).lower()
+    crops = ["tomato","rice","wheat","maize","cotton","sugarcane","potato","groundnut"]
+    soils = ["black soil","black","loamy","loam","clay","sandy","sandy loam","silty","red soil","red"]
+    stages = ["establishment","vegetative","flowering","fruiting","grain","bulking","maturity"]
+    crop = next((x for x in crops if x in text), None)
+    soil = next((x for x in soils if x in text), None)
+    stage = next((x for x in stages if x in text), None)
+    return crop, soil, stage
+
 def classify(question):
     q=(question or "").lower()
     for topic, words in KEYWORDS.items():
@@ -88,6 +98,26 @@ def classify(question):
         return "greeting"
     return "welcome"
 
-def reply(language, question):
+def reply(language, question, history=None):
     language = language if language in RESPONSES else "English"
-    return RESPONSES[language][classify(question)]
+    topic = classify(question)
+    crop, soil, stage = _entities(question, history)
+
+    if language == "English":
+        q=(question or "").lower()
+        if topic == "irrigation" and crop and soil:
+            soil_name = "Black soil" if soil in ("black","black soil") else ("Loamy" if soil in ("loam","loamy") else soil.title())
+            interval = {"Black soil":"4–6 days","Loamy":"3–4 days","Clay":"5–7 days","Sandy":"1–2 days","Sandy loam":"2–3 days"}.get(soil_name,"depends on field moisture")
+            demand = {"tomato":"about 4 mm/day before adjusting for growth stage, heat, humidity and rainfall","rice":"about 6 mm/day","wheat":"about 4 mm/day","maize":"about 5 mm/day","cotton":"about 5 mm/day"}.get(crop,"crop demand varies by stage")
+            method = "drip irrigation is usually a good choice for tomato"
+            return f"For {crop.title()} on {soil_name}, start with {demand}. {soil_name} holds water relatively well, so avoid frequent heavy watering. A practical starting interval is {interval}, then adjust using actual soil moisture and rainfall. For tomato, {method}. During flowering and fruiting, check moisture more often. If you tell me the field area and growth stage, I can estimate litres and timing."
+        if topic == "soil" and soil:
+            soil_name = "Black soil" if soil in ("black","black soil") else ("Loamy" if soil in ("loam","loamy") else soil.title())
+            crops_for = {"Black soil":"cotton, soybean, wheat, sorghum, maize, chickpea and some vegetables with good drainage","Loamy":"tomato, maize, wheat, groundnut, vegetables and many field crops","Clay":"rice, wheat and crops tolerant of heavier soils","Sandy":"groundnut, watermelon, carrot and other well-drained crops"}
+            return f"{soil_name} generally has {('high water-holding capacity and can become waterlogged if over-irrigated' if soil_name=='Black soil' else 'moderate water-holding capacity' if soil_name=='Loamy' else 'higher drainage needs' if soil_name=='Sandy' else 'high water-holding capacity')}. Suitable crop options include {crops_for.get(soil_name,'several crops depending on climate and drainage')}. A soil test is still important for pH and nutrients."
+        if topic == "crop" and soil:
+            soil_name = "Black soil" if soil in ("black","black soil") else ("Loamy" if soil in ("loam","loamy") else soil.title())
+            return f"For {soil_name}, crop choice should also consider season, rainfall and irrigation availability. Common options include " + {"Black soil":"cotton, soybean, wheat, maize, sorghum and chickpea","Loamy":"tomato, maize, wheat, groundnut and vegetables","Clay":"rice and wheat","Sandy":"groundnut, watermelon and other well-drained crops"}.get(soil_name,"several locally adapted crops") + ". Tell me your season and water availability and I can narrow it down."
+        if topic == "pest":
+            return "I can help diagnose it step by step. Tell me the crop, plant age, affected part, and symptoms (spots, curling, holes, yellowing, wilting or insects). If possible, share a clear photo. I’ll separate likely causes from safe control options and avoid recommending unnecessary pesticide use."
+    return RESPONSES[language][topic]
