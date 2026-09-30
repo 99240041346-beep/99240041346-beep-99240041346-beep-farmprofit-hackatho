@@ -515,11 +515,12 @@ Prefer short sections: Assessment, What to do now, and Watch for.
 Answer in the user's language when they ask in a regional language."""
     payload = {
         "model": os.environ.get("OPENAI_FARMER_MODEL", "gpt-5.6-luna"),
+        "tools": [{"type": "web_search"}],
         "input": [
             {"role": "system", "content": system},
             {"role": "user", "content": "Farm context:\n" + json.dumps(context, ensure_ascii=False) + "\n\nFarmer question:\n" + question}
         ],
-        "max_output_tokens": 700
+        "max_output_tokens": 1000
     }
     try:
         body = json.dumps(payload).encode("utf-8")
