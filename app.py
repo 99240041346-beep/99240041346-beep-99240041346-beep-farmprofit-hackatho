@@ -298,6 +298,18 @@ def simulator():
     return render_template("simulator.html", result=result, form=form)
 
 
+@app.route("/what-if")
+@login_required
+def what_if():
+    form = {
+        "crop": "Rice",
+        "area": "5",
+        "yield_per_acre": str(CROPS["Rice"]["yield"]),
+        "price": str(CROPS["Rice"]["price"]),
+        **{key: str(default) for key, _, default in COST_FIELDS},
+    }
+    return render_template("simulator.html", result=None, form=form, what_if_only=True)
+
 @app.route("/compare")
 @login_required
 def compare():
