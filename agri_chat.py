@@ -80,7 +80,7 @@ KEYWORDS = {
 }
 
 def _entities(question, history=None):
-    text = " ".join([str(x.get("text","")) for x in (history or []) if isinstance(x, dict)] + [question or ""]).lower()
+    current = (question or "").lower()\n    previous = " ".join([str(x.get("text","")) for x in (history or []) if isinstance(x, dict) and x.get("role") == "user"]).lower()\n    text = current + " " + previous
     crops = ["tomato","rice","wheat","maize","cotton","sugarcane","potato","groundnut"]
     soils = ["black soil","black","loamy","loam","clay","sandy","sandy loam","silty","red soil","red"]
     stages = ["establishment","vegetative","flowering","fruiting","grain","bulking","maturity"]
