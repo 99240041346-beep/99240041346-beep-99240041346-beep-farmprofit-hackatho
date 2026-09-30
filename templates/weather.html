@@ -23,6 +23,8 @@
 </div>
 
 <div id="weather-content" style="display:none">
+  <section class="panel" id="farmer-alerts-panel" style="margin-bottom:14px;display:none"><div class="panel-head"><div><div class="eyebrow">FARMER ALERTS</div><h2 id="farmer-alert-title">Weather risk alerts</h2><p id="farmer-alert-subtitle">Generated from the live weather forecast for your current location.</p></div></div><div id="farmer-alerts"></div></section>
+
   <section class="panel weather-now-panel">
     <div class="weather-now-main">
       <div id="weather-icon" class="weather-icon-large">🌤️</div>
@@ -118,10 +120,33 @@
     return condition(code);
   }
 
+  function generateFarmerAlerts(data){
+    const cur=data.current||{}, daily=data.daily||{};
+    const alerts=[];
+    const temp=Number(cur.temperature_2m||0), wind=Number(cur.wind_speed_10m||0), humidity=Number(cur.relative_humidity_2m||0);
+    const rain=Number(cur.precipitation||0);
+    const maxs=daily.temperature_2m_max||[], probs=daily.precipitation_probability_max||[], sums=daily.precipitation_sum||[], codes=daily.weather_code||[];
+    const max7=maxs.length?Math.max.apply(null,maxs.map(Number)):temp;
+    const rain7=sums.length?sums.reduce((a,b)=>a+Number(b||0),0):rain;
+    const maxRainProb=probs.length?Math.max.apply(null,probs.map(Number)):0;
+    const storm=codes.some(x=>[95,96,99].includes(Number(x)));
+    const heavyRain=codes.some(x=>[65,82].includes(Number(x))) || rain7>=50 || maxRainProb>=80;
+    if(storm) alerts.push(["⛈️","Severe weather watch","Thunderstorms are possible in the forecast. Secure loose farm equipment, avoid field work during lightning, and protect livestock.","High"]);
+    else if(heavyRain) alerts.push(["🌧️","Heavy rain / waterlogging risk","Rainfall may become intense. Check field drainage, avoid unnecessary irrigation, and protect harvested produce from rain.","High"]);
+    if(max7>=38 || temp>=38) alerts.push(["🌡️","Heat stress alert","High temperatures are expected. Irrigate during cooler hours, monitor crops for heat stress, and provide shade and water for livestock.","High"]);
+    if(wind>=35 || wind>=25) alerts.push(["💨","Strong wind alert","Strong winds may affect crops and equipment. Check supports for tall crops, secure loose materials, and avoid spraying during strong winds.","Medium"]);
+    if(humidity>=90 && rain7>10) alerts.push(["💧","High humidity / disease risk","Warm, humid and wet conditions can increase fungal disease pressure. Inspect leaves regularly and improve field ventilation and drainage.","Medium"]);
+    if(rain7<2 && maxRainProb<30 && maxs.length>=3) alerts.push(["☀️","Dry spell alert","Very little rain is expected over the forecast period. Check soil moisture before irrigation and plan water use carefully.","Medium"]);
+    if(!alerts.length) alerts.push(["🌱","Favourable conditions","No major weather risk was detected in the current forecast. Continue monitoring the forecast and field conditions.","Low"]);
+    const box=document.getElementById("farmer-alerts");
+    box.innerHTML=alerts.map(a=>"<div class='alert-banner'><span style='font-size:24px'>"+a[0]+"</span><div><strong>"+a[1]+"</strong><div>"+a[2]+"</div><small>Priority: "+a[3]+"</small></div></div>").join("");
+    document.getElementById("farmer-alerts-panel").style.display="block";
+  }
+
   function render(data,lat,lon){
     const cur=data.current||{};
     const daily=data.daily||{};
-    const c=condition(cur.weather_code);
+    const c=condition(cur.weather_code);\n    generateFarmerAlerts(data);
     const temp=Number(cur.temperature_2m||0);
     document.getElementById("weather-icon").textContent=c[0];
     document.getElementById("weather-condition").textContent=c[1];
