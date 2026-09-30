@@ -17,19 +17,35 @@
       }catch(e){$("weather-signal").textContent="Live weather could not be attached; crop and soil prediction is still available.";}
     },()=>{$("weather-signal").textContent="Location permission not granted; run prediction with crop, soil and stage inputs."},{timeout:3500,maximumAge:900000});
   }
-  $("askFarmerAI")?.addEventListener("click",async()=>{
-    const q=$("farmerQuestion").value.trim();
-    if(!q)return;
-    $("farmerAIAnswer").textContent="Thinking…";
+  const farmerHistory=[];
+  function addFarmerMessage(role,text){
+    const box=$("farmerAIAnswer"), row=document.createElement("div"), bubble=document.createElement("div");
+    row.style.cssText="display:flex;margin:10px 0;justify-content:"+(role==="user"?"flex-end":"flex-start");
+    bubble.style.cssText="max-width:88%;padding:11px 14px;border-radius:14px;white-space:pre-wrap;line-height:1.55;background:"+(role==="user"?"#17351f":"#f5f8f3")+";color:"+(role==="user"?"#fff":"#17351f");
+    bubble.textContent=text; row.appendChild(bubble); box.appendChild(row); box.scrollTop=box.scrollHeight;
+  }
+  async function askFarmerAI(){
+    const input=$("farmerQuestion"), q=input.value.trim(); if(!q)return;
+    input.value=""; addFarmerMessage("user",q);
+    const thinking=document.createElement("div"); thinking.textContent="Thinking and researching…"; thinking.style.cssText="padding:8px 0;color:#6b756c"; $("farmerAIAnswer").appendChild(thinking);
     try{
       const r=await fetch("{{ url_for('api_ai_farmer') }}",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({
-        question:q,crop:$("crop").value,soil:$("soil").value,stage:$("stage").value,area:$("area").value,
+        question:q,history:farmerHistory,crop:$("crop").value,soil:$("soil").value,stage:$("stage").value,area:$("area").value,
         temperature:$("temperature").value,humidity:$("humidity").value,rain:$("rain").value,rain_probability:$("rain_probability").value
       })});
-      const d=await r.json();
-      $("farmerAIAnswer").textContent=d.answer||d.error||"AI response unavailable.";
-    }catch(e){$("farmerAIAnswer").textContent="AI connection failed. Please retry.";}
-  });
+      const d=await r.json(); thinking.remove();
+      if(!r.ok||d.error){addFarmerMessage("assistant",d.error||"AI response unavailable.");return;}
+      farmerHistory.push({role:"user",content:q},{role:"assistant",content:d.answer});
+      addFarmerMessage("assistant",d.answer);
+      if((d.sources||[]).length){
+        const src=document.createElement("div"); src.style.cssText="margin:4px 0 12px 4px;font-size:12px;color:#667";
+        src.innerHTML="<b>Web sources</b><br>"+d.sources.map(s=>"<a href='"+s.url+"' target='_blank' rel='noopener'>"+s.title+"</a>").join("<br>");
+        $("farmerAIAnswer").appendChild(src);
+      }
+    }catch(e){thinking.remove();addFarmerMessage("assistant","AI connection failed. Please retry.");}
+  }
+  $("askFarmerAI")?.addEventListener("click",askFarmerAI);
+  $("farmerQuestion")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();askFarmerAI();}});
   $("aiPredictBtn")?.addEventListener("click",async()=>{
     const payload={
       crop:$("crop").value, area:$("area").value, price:$("price").value,
@@ -49,7 +65,7 @@
     $("ai-insights").innerHTML=(d.insights||[]).map(x=>"<div style='padding:8px 10px;margin:5px 0;background:#f7f8f6;border-radius:8px'>🌱 "+x+"</div>").join("");
     $("ai-irrigation").textContent="💧 Irrigation: "+d.irrigation_action+" Estimated need: "+d.water_need_mm+" mm/acre.";
   });
-  loadWeather();
+  document.querySelectorAll(".farmer-prompt").forEach(btn=>btn.addEventListener("click",()=>{$("farmerQuestion").value=btn.textContent;askFarmerAI();}));\n  loadWeather();
 })();
 </script>{% endblock %}
 {% block content %}
@@ -70,14 +86,19 @@
 <section class="results-column">
 <div class="result-hero {% if result and result.profit < 0 %}loss{% endif %}"><small>ESTIMATED NET PROFIT</small><div id="profit-display">₹{{ "{:,.0f}".format(result.profit) if result else "0" }}</div><p id="profit-message">{% if result %}{% if result.profit < 0 %}This plan is currently loss-making.{% else %}This plan is profitable under your assumptions.{% endif %}{% else %}Change the values to calculate your profit.{% endif %}</p></div>
 <div class="panel insight-panel" style="margin-top:14px"><div class="panel-head"><div><div class="eyebrow">AI DECISION ENGINE</div><h2>Farm prediction</h2><p id="ai-engine">Add your crop, soil and stage, then run the prediction.</p></div><strong id="ai-confidence">--</strong></div><div class="metric-grid mini"><div class="metric"><small>AI yield / acre</small><strong id="ai-yield">—</strong></div><div class="metric"><small>Predicted profit</small><strong id="ai-profit">—</strong></div><div class="metric"><small>Water / acre</small><strong id="ai-water">—</strong></div><div class="metric"><small>Risk</small><strong id="ai-risk">—</strong></div></div><div id="ai-insights" style="margin-top:14px"></div><div id="ai-irrigation" style="margin-top:10px;font-weight:600"></div></div><div class="metric-grid mini"><div class="metric"><small>Revenue</small><strong id="revenue-display">₹{{ "{:,.0f}".format(result.revenue) if result else "0" }}</strong></div><div class="metric"><small>Total Cost</small><strong id="cost-display">₹{{ "{:,.0f}".format(result.total_cost) if result else "0" }}</strong></div><div class="metric"><small>ROI</small><strong id="roi-display">{{ "{:.1f}".format(result.roi) if result else "0.0" }}%</strong></div><div class="metric"><small>Risk</small><strong id="risk-display">{{ result.risk if result else "—" }}</strong></div></div>
-<div class="panel insight-panel"><div class="panel-head"><div><div class="eyebrow">DECISION METRICS</div><h2>Break-even & production</h2></div></div><div class="break-grid"><div><span>Break-even price</span><b id="be-price">₹{{ "{:,.0f}".format(result.break_even_price) if result else "0" }}</b></div><div><span>Break-even yield</span><b id="be-yield">{{ "{:.2f}".format(result.break_even_yield) if result else "0.00" }}</b></div><div><span>Production</span><b id="production">{{ "{:,.1f}".format(result.production) if result else "0" }}</b></div><div><span>Margin</span><b id="margin">{{ "{:.1f}".format(result.margin) if result else "0.0" }}%</b></div><div class="panel" style="margin-top:14px;border:1px solid #dcebd8">
-  <div class="panel-head"><div><div class="eyebrow">CHATGPT + WEB RESEARCH</div><h2>Ask ChatGPT about your farm</h2><p>Get detailed farming guidance using your farm inputs plus current web research — without leaving AgriWise.</p></div></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <input id="farmerQuestion" type="text" placeholder="Example: Should I irrigate my tomato crop today?" style="flex:1;min-width:240px">
-    <button class="btn btn-primary" type="button" id="askFarmerAI">Ask ChatGPT + Web</button>
+<div class="panel insight-panel"><div class="panel-head"><div><div class="eyebrow">DECISION METRICS</div><h2>Break-even & production</h2></div></div><div class="break-grid"><div><span>Break-even price</span><b id="be-price">₹{{ "{:,.0f}".format(result.break_even_price) if result else "0" }}</b></div><div><span>Break-even yield</span><b id="be-yield">{{ "{:.2f}".format(result.break_even_yield) if result else "0.00" }}</b></div><div><span>Production</span><b id="production">{{ "{:,.1f}".format(result.production) if result else "0" }}</b></div><div><span>Margin</span><b id="margin">{{ "{:.1f}".format(result.margin) if result else "0.0" }}%</b></div><div class="panel insight-panel" style="margin-top:14px">
+  <div class="panel-head"><div><div class="eyebrow">CHATGPT FARM ASSISTANT</div><h2>Chat with AI about this prediction</h2><p>Ask follow-up questions about profit, irrigation, soil, crops, pests or current farming information. Everything stays inside AgriWise.</p></div></div>
+  <div id="farmerAIAnswer" style="height:260px;overflow:auto;padding:4px 2px;background:#fbfcfa;border-radius:12px"></div>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <input id="farmerQuestion" type="text" placeholder="Ask: Why is my predicted profit low?" style="flex:1;min-width:180px">
+    <button class="btn btn-primary" type="button" id="askFarmerAI">Send</button>
   </div>
-  <div id="farmerAIAnswer" style="margin-top:12px;white-space:pre-wrap;line-height:1.6"></div>
-</div></div></div>
+  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
+    <button class="btn btn-light farmer-prompt" type="button">Explain my prediction</button>
+    <button class="btn btn-light farmer-prompt" type="button">How can I reduce costs?</button>
+    <button class="btn btn-light farmer-prompt" type="button">Should I irrigate now?</button>
+  </div>
+</div></div></div></div>
 </section></div>
 
 {% endblock %}
