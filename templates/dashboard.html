@@ -23,29 +23,6 @@
     <div class="form-actions"><button class="btn btn-primary" type="submit">+ Predict Profit</button><a class="btn btn-light" href="{{ url_for('simulator') }}">Open simulator</a></div>
   </form>
 </section>
-<section class="panel agri-intelligence-panel">
-  <div class="panel-head"><div><div class="eyebrow">FARM WEATHER + IRRIGATION</div><h2>Plan irrigation for your actual farm</h2><p>Select a weather location manually. Then choose soil + crop + area yourself for an irrigation prediction; the location is used only for weather.</p></div><span class="live-dot">● FORECAST</span></div>
-  <div class="location-picker">
-    <div class="location-search-row">
-      <label>Weather location
-        <input id="weatherLocationInput" type="search" placeholder="Search village, town or district" autocomplete="off">
-      </label>
-      <button class="btn btn-light" type="button" id="weatherLocationSearch">Search location</button>
-    </div>
-    <div id="locationResults" class="location-results" hidden></div>
-    <div id="selectedFarmLocation" class="selected-location">No weather location selected yet.</div>
-  </div>
-  <div class="field-row four irrigation-controls">
-    <label>Crop<select id="irrigationCrop">{% for crop, info in crops.items() %}<option value="{{ crop }}">{{ crop }}</option>{% endfor %}</select></label>
-    <label>Soil type<select id="irrigationSoil">
-      <option value="Sandy">Sandy</option><option value="Sandy Loam">Sandy Loam</option><option value="Loamy" selected>Loamy</option><option value="Silty">Silty</option><option value="Clay">Clay</option>
-    </select></label>
-    <label>Growth stage<select id="irrigationStage">{% for stage in crop_stages.keys() %}<option value="{{ stage }}" {% if stage=="Vegetative" %}selected{% endif %}>{{ stage }}</option>{% endfor %}</select></label><label>Land area (acres)<input id="irrigationArea" type="number" min="0.1" step="0.1" value="1"></label>
-    <div class="irrigation-action-wrap"><button class="btn btn-primary" type="button" id="checkIrrigation">Predict irrigation</button></div>
-  </div>
-  <div id="irrigationStatus" class="irrigation-status">Choose a weather location to begin.</div>
-  <div id="irrigationResult" class="irrigation-result" hidden></div>
-</section>
 
 <section class="panel simulator-teaser"><div class="panel-head"><div><div class="eyebrow">WHAT-IF SIMULATOR</div><h2>Stress-test your plan</h2><p>Change price, yield and costs and see how profit changes.</p></div><a href="{{ url_for('simulator') }}#what-if">Open →</a></div><div class="slider-preview"><div><span>Market price change</span><b>±30%</b></div><div class="track"><i style="width:65%"></i></div><div><span>Yield change</span><b>±30%</b></div><div class="track"><i style="width:52%"></i></div><div><span>Cost change</span><b>±30%</b></div><div class="track"><i style="width:74%"></i></div></div></section>
 <section class="panel"><div class="panel-head"><div><div class="eyebrow">SAVED PLANS</div><h2>Recent analyses</h2></div><a href="{{ url_for('history') }}">View all →</a></div>{% if plans %}<div class="table-wrap"><table><thead><tr><th>Crop</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>ROI</th><th>Risk</th></tr></thead><tbody>{% for p in plans %}<tr><td><b>{{ p.crop }}</b><small>{{ "{:g}".format(p.area) }} acres</small></td><td>₹{{ "{:,.0f}".format(p.revenue) }}</td><td>₹{{ "{:,.0f}".format(p.total_cost) }}</td><td class="{% if p.profit < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.0f}".format(p.profit) }}</td><td>{{ "{:.1f}".format(p.roi) }}%</td><td><span class="risk {{ p.risk|lower }}">{{ p.risk }}</span></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty"><h3>No saved plans yet</h3><p>Run a prediction and save it to start building your farm history.</p><a class="btn btn-primary" href="{{ url_for('simulator') }}">Create first plan</a></div>{% endif %}</section>
