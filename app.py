@@ -298,7 +298,7 @@ def simulator():
     return render_template("simulator.html", result=result, form=form)
 
 
-@app.route("/what-if")
+@app.route("/what-if", methods=["GET", "POST"])
 @login_required
 def what_if():
     form = {
@@ -307,8 +307,28 @@ def what_if():
         "yield_per_acre": str(CROPS["Rice"]["yield"]),
         "price": str(CROPS["Rice"]["price"]),
         **{key: str(default) for key, _, default in COST_FIELDS},
+        "yield_change": "0",
+        "price_change": "0",
+        "cost_change": "0",
     }
-    return render_template("simulator.html", result=None, form=form, what_if_only=True)
+    result = None
+    baseline = None
+    if request.method == "POST":
+        form.update(request.form.to_dict())
+        baseline = calculate(form)
+        yield_change = nfloat(form.get("yield_change"), 0)
+        price_change = nfloat(form.get("price_change"), 0)
+        cost_change = nfloat(form.get("cost_change"), 0)
+        scenario = dict(form)
+        scenario["yield_per_acre"] = baseline["yield_per_acre"] * (1 + yield_change / 100)
+        scenario["price"] = baseline["price"] * (1 + price_change / 100)
+        for key, _, _ in COST_FIELDS:
+            scenario[key] = baseline[key] * (1 + cost_change / 100)
+        result = calculate(scenario)
+        result["baseline_profit"] = baseline["profit"]
+        result["profit_change"] = result["profit"] - baseline["profit"]
+        result["profit_change_pct"] = (result["profit_change"] / baseline["profit"] * 100) if baseline["profit"] else 0
+    return render_template("simulator.html", result=result, baseline=baseline, form=form, what_if_only=True)
 
 @app.route("/compare")
 @login_required
