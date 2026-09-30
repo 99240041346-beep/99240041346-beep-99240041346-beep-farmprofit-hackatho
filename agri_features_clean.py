@@ -301,20 +301,25 @@ def register_agri_features(app,db):
     @app.route("/weather")
     @login_required
     def weather():
-        location = request.args.get("location", "Pudukkottai").strip() or "Pudukkottai"
-        data = display_weather(location)
-        place = data["place"]
-        return render_template(
-            "weather.html",
-            weather=data,
-            error=None,
-            location=place["name"],
-            weather_condition=data["condition"],
-            selected_place=place,
-            crops={name: {} for name in CROP_WATER_MM},
-            soil_profiles=SOIL_PROFILES,
-            crop_stages=CROP_STAGES
-        )
+        lat=request.args.get("lat")
+        lon=request.args.get("lon")
+        location=request.args.get("location","Current location").strip() or "Current location"
+        try:
+            if lat is not None and lon is not None:
+                place={"name":location,"country":"India","latitude":float(lat),"longitude":float(lon)}
+                data=fetch_weather(place)
+                condition=weather_condition(data)
+                data["condition"]=condition
+                data["live"]=True
+                return render_template("weather.html",weather=data,error=None,location=location,
+                    weather_condition=condition,selected_place=place,
+                    crops={name:{} for name in CROP_WATER_MM},soil_profiles=SOIL_PROFILES,crop_stages=CROP_STAGES)
+        except Exception:
+            pass
+        return render_template("weather.html",weather=None,error=None,location="Current location",
+            weather_condition=None,selected_place=None,crops={name:{} for name in CROP_WATER_MM},
+            soil_profiles=SOIL_PROFILES,crop_stages=CROP_STAGES)
+
 
     @app.get("/api/weather")
     @login_required
