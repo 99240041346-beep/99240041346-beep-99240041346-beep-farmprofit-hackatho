@@ -3,7 +3,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_required, current_user
 
 SOIL_PROFILES = {
@@ -96,9 +96,21 @@ def weather_condition(weather):
     if wind >= 30: alerts.append(("💨","Wind alert","Strong winds may affect spraying and exposed crops."))
     if not alerts:
         alerts.append(("🌱","Farm-friendly conditions","No major weather alert for this location right now."))
+    daily_conditions=[]
+    times=daily.get("time") or []
+    codes=daily.get("weather_code") or []
+    max_temps=daily.get("temperature_2m_max") or []
+    min_temps=daily.get("temperature_2m_min") or []
+    rain_probs=daily.get("precipitation_probability_max") or []
+    rain_sums=daily.get("precipitation_sum") or []
+    for i, day in enumerate(times):
+        dcode=int(codes[i] or 0) if i < len(codes) else 0
+        dicon,dlabel,_=WEATHER_CONDITIONS.get(dcode, ("🌤️","Mixed weather","Variable conditions."))
+        daily_conditions.append({"date":day,"icon":dicon,"label":dlabel,"max":max_temps[i] if i < len(max_temps) else None,"min":min_temps[i] if i < len(min_temps) else None,"rain_probability":round(float(rain_probs[i] or 0)) if i < len(rain_probs) else 0,"rain_mm":round(float(rain_sums[i] or 0),1) if i < len(rain_sums) else 0})
     return {
         "icon":icon,"label":label,"description":description,"temperature":round(temp,1),
-        "rain_mm":round(rain,1),"rain_probability":round(prob),"wind":round(wind,1),"alerts":alerts
+        "rain_mm":round(rain,1),"rain_probability":round(prob),"wind":round(wind,1),
+        "alerts":alerts,"daily":daily_conditions
     }
 
 
@@ -289,23 +301,34 @@ def register_agri_features(app,db):
     @app.route("/assistant",methods=["GET","POST"])
     @login_required
     def assistant():
-        question=""; answer=None
+        if "agri_chat" not in session:
+            session["agri_chat"]=[{"role":"assistant","text":"Namaste! 🌱 I’m your AgriWise farming assistant. Ask me about crops, rain, irrigation, soil, pests, fertilizers, market planning or farm equipment."}]
         if request.method=="POST":
             question=request.form.get("question","").strip()
-            q=question.lower()
-            if any(x in q for x in ["rain","weather"]):
-                answer="Use Weather & Farming Day to check the selected weather location and today's conditions."
-            elif any(x in q for x in ["irrigation","water"]):
-                answer="Select a weather location, crop, soil type and growth stage. The planner combines forecast rain with soil water-holding characteristics and crop demand."
-            elif any(x in q for x in ["tractor","harvester","pump","equipment"]):
-                answer="Open Equipment Rental to compare machinery, choose dates and submit a rental request. The system checks overlapping requests."
-            elif any(x in q for x in ["profit","cost","income","roi"]):
-                answer="Use Profit Predictor to enter your farm area, expected yield, market price and production costs. Review revenue, profit, ROI and break-even values."
-            elif any(x in q for x in ["what if","scenario","price change","yield change"]):
-                answer="Use the What-if Simulator inside Profit Predictor to test price, yield and cost changes before committing to a farm plan."
-            else:
-                answer="I can help with weather, crop planning, irrigation, equipment rentals, farm costs, profit prediction and what-if scenarios."
-        return render_template("assistant.html",answer=answer,question=question)
+            if question:
+                q=question.lower()
+                answer="Tell me your crop, location and what you want to know. I can help you plan the next farming step."
+                if any(x in q for x in ["rain","weather","sunny","cloudy","forecast"]):
+                    answer="For weather, open Weather & Alerts and search your Indian village, town or city. I’ll show simple conditions such as Sunny, Cloudy, Rainy or Thunderstorm and highlight farm-relevant alerts."
+                elif any(x in q for x in ["irrigation","water","watering"]):
+                    answer="I can help plan irrigation using your crop, soil and growth stage. Tell me the crop and soil type, such as “Tomato on loamy soil”."
+                elif any(x in q for x in ["crop","plant","sow","seed"]):
+                    answer="I can help choose crops and plan sowing. Tell me your district, season, soil type and available water. I’ll explain suitable crop options and the main things to watch."
+                elif any(x in q for x in ["soil","fertilizer","manure","nutrient"]):
+                    answer="Tell me the soil type and crop. I can explain suitable irrigation, nutrient planning and what to check with a soil test before applying fertilizer."
+                elif any(x in q for x in ["pest","disease","insect","fungus"]):
+                    answer="Tell me the crop and describe the pest or symptom, or upload a clear plant photo if your setup supports images. I can help narrow down likely causes and safe next steps."
+                elif any(x in q for x in ["tractor","harvester","pump","sprayer","equipment"]):
+                    answer="Open Equipment Rental to compare available farm machinery, prices and rental dates. I can also help you decide which machine fits your field work."
+                elif any(x in q for x in ["profit","price","income","market"]):
+                    answer="I can help with farm economics. Give me crop, area, expected yield, selling price and major costs, and I’ll help you understand revenue, cost, profit and break-even."
+                elif any(x in q for x in ["hello","hi","namaste"]):
+                    answer="Namaste! 🌾 What are you growing, and what do you need help with today?"
+                history=session["agri_chat"]
+                history.append({"role":"user","text":question})
+                history.append({"role":"assistant","text":answer})
+                session["agri_chat"]=history[-12:]
+        return render_template("assistant.html",chat=session.get("agri_chat",[]))
 
     @app.context_processor
     def agri_globals():
