@@ -3,7 +3,7 @@ services:
     name: farmprofit
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn main:application --bind 0.0.0.0:$PORT
     healthCheckPath: /health
     envVars:
       - key: SECRET_KEY
