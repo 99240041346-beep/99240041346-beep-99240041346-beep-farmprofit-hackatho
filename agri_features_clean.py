@@ -23,7 +23,7 @@ def fetch_weather(place):
         raise ValueError("Invalid weather coordinates")
     q=urllib.parse.urlencode({
         "latitude":lat,"longitude":lon,
-        "current":"temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m",
+        "current":"temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,weather_code",
         "daily":"temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
         "forecast_days":7,"timezone":"auto"
     })
@@ -46,7 +46,7 @@ def find_locations(query):
     query=(query or "").strip()
     if len(query)<2:
         return []
-    q=urllib.parse.urlencode({"name":query,"count":8,"language":"en","format":"json"})
+    q=urllib.parse.urlencode({"name":query,"count":8,"language":"en","format":"json","countryCode":"IN"})
     with urllib.request.urlopen("https://geocoding-api.open-meteo.com/v1/search?"+q,timeout=8) as response:
         geo=json.load(response)
     return [
@@ -56,20 +56,50 @@ def find_locations(query):
     ]
 
 
-def day_summary(weather):
+WEATHER_CONDITIONS = {
+    0: ("☀️", "Sunny", "Clear skies today."),
+    1: ("🌤️", "Mostly sunny", "Mostly clear conditions today."),
+    2: ("⛅", "Partly cloudy", "A mix of sunshine and clouds today."),
+    3: ("☁️", "Cloudy", "Cloudy conditions today."),
+    45: ("🌫️", "Foggy", "Reduced visibility is possible."),
+    48: ("🌫️", "Foggy", "Reduced visibility is possible."),
+    51: ("🌦️", "Light drizzle", "Light drizzle may occur."),
+    53: ("🌦️", "Drizzle", "Drizzle is possible."),
+    55: ("🌧️", "Drizzle", "Persistent drizzle is possible."),
+    61: ("🌦️", "Light rain", "Light rain is expected."),
+    63: ("🌧️", "Rainy", "Rain is expected today."),
+    65: ("🌧️", "Heavy rain", "Heavy rain is possible today."),
+    71: ("🌨️", "Light snow", "Cool weather with light snow is expected."),
+    73: ("🌨️", "Snow", "Snow is possible today."),
+    75: ("❄️", "Heavy snow", "Heavy snow is possible today."),
+    80: ("🌦️", "Rain showers", "Rain showers are possible."),
+    81: ("🌧️", "Rain showers", "Rain showers are expected."),
+    82: ("⛈️", "Heavy showers", "Heavy rain showers are possible."),
+    95: ("⛈️", "Thunderstorm", "Thunderstorms are possible."),
+    96: ("⛈️", "Thunderstorm", "Thunderstorms with hail are possible."),
+    99: ("⛈️", "Thunderstorm", "Strong thunderstorms with hail are possible."),
+}
+
+def weather_condition(weather):
     cur=weather.get("current",{}); daily=weather.get("daily",{})
-    temp=float(cur.get("temperature_2m") or 0); wind=float(cur.get("wind_speed_10m") or 0)
+    code=int(cur.get("weather_code") if cur.get("weather_code") is not None else ((daily.get("weather_code") or [0])[0] or 0))
+    icon,label,description=WEATHER_CONDITIONS.get(code, ("🌤️","Weather update","Current conditions for this location."))
+    temp=float(cur.get("temperature_2m") or 0)
     rain=float((daily.get("precipitation_sum") or [0])[0] or 0)
     prob=float((daily.get("precipitation_probability_max") or [0])[0] or 0)
-    if rain>=10 or prob>=70:
-        return {"label":"Rainy / wet day","message":"Rain is likely today. Check drainage and avoid unnecessary irrigation.","action":"Reduce or skip irrigation"}
-    if wind>=30:
-        return {"label":"Windy day","message":"Strong winds are possible. Plan spraying and exposed field work carefully.","action":"Avoid unnecessary spraying"}
-    if temp>=36:
-        return {"label":"Hot day","message":"High heat can increase crop water demand. Check soil moisture before irrigation.","action":"Monitor soil moisture"}
-    if temp<=18:
-        return {"label":"Cool day","message":"Cooler conditions generally reduce crop water demand compared with hotter days.","action":"Irrigation may be less frequent"}
-    return {"label":"Generally workable day","message":"Conditions are relatively moderate. Use crop stage and soil moisture for field decisions.","action":"Continue normal field checks"}
+    wind=float(cur.get("wind_speed_10m") or 0)
+    alerts=[]
+    if code in (95,96,99): alerts.append(("⛈️","Thunderstorm alert","Avoid open-field work during lightning and secure exposed equipment."))
+    elif code in (65,82): alerts.append(("🌧️","Heavy rain alert","Check drainage and protect harvested produce from rain."))
+    elif rain >= 8 or prob >= 70: alerts.append(("🌧️","Rain alert",f"Rain chance is {round(prob)}% today. Plan field work around the rain."))
+    if temp >= 36: alerts.append(("🌡️","Heat alert","High temperatures can increase crop water demand. Check soil moisture."))
+    if wind >= 30: alerts.append(("💨","Wind alert","Strong winds may affect spraying and exposed crops."))
+    if not alerts:
+        alerts.append(("🌱","Farm-friendly conditions","No major weather alert for this location right now."))
+    return {
+        "icon":icon,"label":label,"description":description,"temperature":round(temp,1),
+        "rain_mm":round(rain,1),"rain_probability":round(prob),"wind":round(wind,1),"alerts":alerts
+    }
 
 
 def irrigation(crop,soil,area,stage,weather):
@@ -172,12 +202,9 @@ def register_agri_features(app,db):
                 place=places[0]
                 location=place["name"]
             data=fetch_weather(place)
-            return render_template("weather.html",weather=data,error=None,location=location,day_summary=day_summary(data),selected_place=place)
-        except ValueError:
-            msg="That place was not found. Search for a village, town, district or city and select a result."
+            return render_template("weather.html",weather=data,error=None,location=location,weather_condition=weather_condition(data),selected_place=place)
         except Exception:
-            msg="Weather data is temporarily unavailable for that place. Please try again."
-        return render_template("weather.html",weather=None,error=msg,location=location,day_summary=None,selected_place=None)
+            return render_template("weather.html",weather=None,error=None,location=location,weather_condition=None,selected_place=None)
 
     @app.get("/api/weather")
     @login_required
