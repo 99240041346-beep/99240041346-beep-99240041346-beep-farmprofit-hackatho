@@ -146,7 +146,8 @@
   function render(data,lat,lon){
     const cur=data.current||{};
     const daily=data.daily||{};
-    const c=condition(cur.weather_code);\n    generateFarmerAlerts(data);
+    const c=condition(cur.weather_code);
+    if(data.daily && data.daily.time) generateFarmerAlerts(data);
     const temp=Number(cur.temperature_2m||0);
     document.getElementById("weather-icon").textContent=c[0];
     document.getElementById("weather-condition").textContent=c[1];
@@ -180,20 +181,20 @@
 
   async function loadWeather(lat,lon){
     showLoading();
-    const qs="latitude="+encodeURIComponent(lat)+"&longitude="+encodeURIComponent(lon)
-      +"&current=temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,weather_code"
-      +"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code"
-      +"&forecast_days=7&timezone=auto";
     try{
       const response=await fetch("/api/weather?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"});
       const data=await response.json();
-      if(response.ok && !data.error){
-        render(data,lat,lon);
-        return;
-      }
+      if(!response.ok || data.error || !data.current) throw new Error("current weather failed");
+      render(data,lat,lon);
+      fetch("/api/weather-forecast?lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lon)+"&name=Current%20location",{credentials:"same-origin",cache:"no-store"})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(forecast){
+          if(forecast && forecast.daily){ renderForecast(forecast); generateFarmerAlerts(forecast); }
+        }).catch(function(){});
+      return;
     }catch(e){}
     try{
-      const direct=await fetch("https://api.open-meteo.com/v1/forecast?"+qs,{cache:"no-store"});
+      const direct=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+encodeURIComponent(lat)+"&longitude="+encodeURIComponent(lon)+"&current=temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,weather_code&timezone=auto",{cache:"no-store"});
       const data=await direct.json();
       if(!direct.ok || data.error || !data.current) throw new Error("direct weather failed");
       render(data,lat,lon);
@@ -202,6 +203,21 @@
     }
   }
 
+  function renderForecast(data){
+    const daily=data.daily||{};
+    const grid=document.getElementById("forecast-grid");
+    grid.innerHTML="";
+    (daily.time||[]).forEach((date,i)=>{
+      const dc=dayCondition((daily.weather_code||[])[i]);
+      const high=(daily.temperature_2m_max||[])[i];
+      const low=(daily.temperature_2m_min||[])[i];
+      const rain=(daily.precipitation_probability_max||[])[i] ?? 0;
+      const card=document.createElement("div");
+      card.className="forecast-card";
+      card.innerHTML="<b>"+date+"</b><span>"+dc[0]+"</span><strong>"+dc[1]+"</strong><strong>"+Number(high||0).toFixed(0)+"° / "+Number(low||0).toFixed(0)+"°C</strong><small>Rain chance: "+Number(rain).toFixed(0)+"%</small>";
+      grid.appendChild(card);
+    });
+  }
   window.startLiveWeather=function(){
     showLoading();
     if(!navigator.geolocation){
@@ -220,7 +236,7 @@
           }
         });
       },
-      {enableHighAccuracy:true,timeout:15000,maximumAge:300000}
+      {enableHighAccuracy:false,timeout:6000,maximumAge:600000}
     );
   };
 
