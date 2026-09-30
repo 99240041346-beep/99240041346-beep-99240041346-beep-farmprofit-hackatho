@@ -40,7 +40,7 @@
     <label>Soil type<select id="irrigationSoil">
       <option value="Sandy">Sandy</option><option value="Sandy Loam">Sandy Loam</option><option value="Loamy" selected>Loamy</option><option value="Silty">Silty</option><option value="Clay">Clay</option>
     </select></label>
-    <label>Land area (acres)<input id="irrigationArea" type="number" min="0.1" step="0.1" value="1"></label>
+    <label>Growth stage<select id="irrigationStage">{% for stage in crop_stages.keys() %}<option value="{{ stage }}" {% if stage=="Vegetative" %}selected{% endif %}>{{ stage }}</option>{% endfor %}</select></label><label>Land area (acres)<input id="irrigationArea" type="number" min="0.1" step="0.1" value="1"></label>
     <div class="irrigation-action-wrap"><button class="btn btn-primary" type="button" id="checkIrrigation">Predict irrigation</button></div>
   </div>
   <div id="irrigationStatus" class="irrigation-status">Choose a weather location to begin.</div>
