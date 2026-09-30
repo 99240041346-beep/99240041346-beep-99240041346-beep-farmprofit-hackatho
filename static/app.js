@@ -195,7 +195,7 @@
     if (selectedLocation) selectedLocation.textContent = "✓ " + locationLabel(place);
     if (locationResults) locationResults.hidden = true;
     localStorage.setItem("agriwise-weather-location", JSON.stringify(place));
-    if (irrigationStatus) irrigationStatus.textContent = "Location selected. Weather and irrigation can now use this farm location.";
+    if (irrigationStatus) irrigationStatus.textContent = "Farm location selected.";
     // On the Weather page, immediately reload the real forecast for the chosen result.
     if (window.WEATHER_PAGE && (!window.WEATHER_PAGE.selectedPlace || String(window.WEATHER_PAGE.selectedPlace.latitude) !== String(place.latitude) || String(window.WEATHER_PAGE.selectedPlace.longitude) !== String(place.longitude))) {
       const params = new URLSearchParams({
@@ -211,7 +211,7 @@
   async function searchFarmLocation() {
     const q = locationInput ? locationInput.value.trim() : "";
     if (q.length < 2) {
-      if (irrigationStatus) irrigationStatus.textContent = "Enter a village, town, district or city name.";
+      if (irrigationStatus) irrigationStatus.textContent = "Search for your village, town, district or city.";
       return;
     }
     if (locationSearch) { locationSearch.disabled = true; locationSearch.textContent = "Searching…"; }
@@ -220,9 +220,9 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Location search failed");
       renderLocationResults(data.results || []);
-      if (irrigationStatus) irrigationStatus.textContent = data.results && data.results.length ? "Select the correct place from the list." : (data.error || "No location found.");
+      if (irrigationStatus) irrigationStatus.textContent = data.results && data.results.length ? "Choose your farm from the places below." : "No matching place found. Try the nearest town or district.";
     } catch (error) {
-      if (irrigationStatus) irrigationStatus.textContent = "Choose a nearby place from the search results.";
+      if (irrigationStatus) irrigationStatus.textContent = "Try the village, town or district name again.";
       
     } finally {
       if (locationSearch) { locationSearch.disabled = false; locationSearch.textContent = "Search location"; }
@@ -231,14 +231,14 @@
 
   async function checkIrrigation() {
     if (!selectedWeatherLocation) {
-      if (irrigationStatus) irrigationStatus.textContent = "Select your farm area first.";
+      if (irrigationStatus) irrigationStatus.textContent = "Choose your farm location first.";
       return;
     }
     const crop = document.getElementById("irrigationCrop")?.value || "Rice";
     const soil = document.getElementById("irrigationSoil")?.value || "Loamy";
     const area = Math.max(Number(document.getElementById("irrigationArea")?.value || 1), 0.1);\n    const stage = document.getElementById("irrigationStage")?.value || "Vegetative";
     if (irrigationBtn) { irrigationBtn.disabled = true; irrigationBtn.textContent = "Calculating…"; }
-    if (irrigationStatus) irrigationStatus.textContent = "Combining forecast, crop and soil characteristics…";
+    if (irrigationStatus) irrigationStatus.textContent = "Preparing your irrigation plan…";
     try {
       const params = new URLSearchParams({
         lat: selectedWeatherLocation.latitude, lon: selectedWeatherLocation.longitude,
@@ -266,9 +266,9 @@
           <div class="irrigation-method"><strong>Recommended method:</strong> ${a.irrigation_method} · <strong>Typical interval:</strong> ${a.typical_interval}</div>
           <div class="irrigation-disclaimer">${a.method} Adjust using field soil moisture, crop growth stage and local agronomist guidance.</div>`;
       }
-      if (irrigationStatus) irrigationStatus.textContent = "Irrigation prediction updated using weather from " + locationLabel(selectedWeatherLocation) + ".";
+      if (irrigationStatus) irrigationStatus.textContent = "Irrigation plan ready for " + locationLabel(selectedWeatherLocation) + ".";
     } catch (error) {
-      if (irrigationStatus) irrigationStatus.textContent = "Your irrigation recommendation will appear when the selected farm weather is ready.";
+      if (irrigationStatus) irrigationStatus.textContent = "Irrigation guidance is based on the selected farm conditions.";
     } finally {
       if (irrigationBtn) { irrigationBtn.disabled = false; irrigationBtn.textContent = "Predict irrigation"; }
     }
