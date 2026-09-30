@@ -1,5 +1,5 @@
 from app import app, db
-from agri_features import register_agri_features
+from agri_features_clean import register_agri_features
 
 register_agri_features(app, db)
 
