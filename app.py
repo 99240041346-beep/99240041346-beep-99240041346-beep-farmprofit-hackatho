@@ -181,6 +181,103 @@ def calculate(data):
     }
 
 
+def ai_predict(data):
+    """Explainable farm intelligence layer combining crop, soil, stage and weather signals."""
+    crop = data.get("crop", "Rice")
+    if crop not in CROPS:
+        crop = "Rice"
+    soil_profiles = {
+        "Black Soil": {"factor": 1.02, "water": "High", "interval": "4–6 days"},
+        "Sandy": {"factor": 0.94, "water": "Low", "interval": "1–2 days"},
+        "Sandy Loam": {"factor": 0.98, "water": "Low–Medium", "interval": "2–3 days"},
+        "Loamy": {"factor": 1.05, "water": "Medium–High", "interval": "3–4 days"},
+        "Silty": {"factor": 1.01, "water": "High", "interval": "4–5 days"},
+        "Clay": {"factor": 0.97, "water": "Very High", "interval": "5–7 days"},
+    }
+    stages = {"Establishment": 0.92, "Vegetative": 1.00, "Flowering / Fruiting": 1.08, "Grain / Bulking": 1.05, "Maturity": 0.90}
+    soil = data.get("soil", "Loamy")
+    if soil not in soil_profiles:
+        soil = "Loamy"
+    stage = data.get("stage", "Vegetative")
+    if stage not in stages:
+        stage = "Vegetative"
+
+    base_yield = float(CROPS[crop]["yield"])
+    base_price = float(CROPS[crop]["price"])
+    area = nfloat(data.get("area"), 5.0)
+    price = nfloat(data.get("price"), base_price) or base_price
+
+    temp = nfloat(data.get("temperature"), 0.0)
+    humidity = nfloat(data.get("humidity"), 0.0)
+    rain = nfloat(data.get("rain"), 0.0)
+    rain_probability = nfloat(data.get("rain_probability"), 0.0)
+
+    # Start from crop/soil/stage suitability, then apply live-weather stress signals.
+    factor = soil_profiles[soil]["factor"] * stages[stage]
+    reasons = []
+    if temp:
+        if temp >= 38:
+            factor *= 0.86; reasons.append("High heat can reduce crop performance.")
+        elif temp >= 35:
+            factor *= 0.94; reasons.append("Warm conditions may increase crop stress.")
+        elif temp < 18:
+            factor *= 0.93; reasons.append("Cool conditions may slow crop growth.")
+        else:
+            reasons.append("Temperature is within a broadly workable range.")
+    if humidity >= 90 and rain > 10:
+        factor *= 0.95; reasons.append("Very humid and wet conditions increase disease pressure.")
+    if rain >= 50:
+        factor *= 0.96; reasons.append("Heavy rainfall can increase waterlogging and field-loss risk.")
+    if rain_probability >= 80:
+        reasons.append("High rain probability means irrigation should be planned cautiously.")
+
+    factor = max(0.65, min(factor, 1.12))
+    predicted_yield = base_yield * factor
+
+    calc = dict(data)
+    calc["yield_per_acre"] = predicted_yield
+    calc["price"] = price
+    baseline = calculate(calc)
+
+    # Water need is deliberately shown as a planning estimate, not a sensor measurement.
+    water_factor = {"Black Soil":0.92,"Sandy":1.18,"Sandy Loam":1.08,"Loamy":1.00,"Silty":0.94,"Clay":0.88}[soil]
+    crop_water = {"Rice":6.0,"Wheat":4.0,"Maize":5.0,"Cotton":5.0,"Sugarcane":7.0,"Tomato":4.0,"Potato":3.5,"Groundnut":4.5}[crop]
+    stage_factor = {"Establishment":0.78,"Vegetative":1.00,"Flowering / Fruiting":1.16,"Grain / Bulking":1.20,"Maturity":0.76}[stage]
+    mm = crop_water * water_factor * stage_factor
+    if temp >= 35: mm *= 1.10
+    if humidity >= 80: mm *= 0.90
+    if rain >= mm * 0.8 or rain_probability >= 70:
+        irrigation_action = "Delay irrigation and recheck soil moisture after the rain."
+    elif rain >= mm * 0.35 or rain_probability >= 45:
+        irrigation_action = "Plan irrigation after the next forecast update and inspect soil moisture."
+    else:
+        irrigation_action = "Irrigation may be needed; use soil moisture and field condition before watering."
+
+    confidence = 58
+    confidence += 12 if temp else 0
+    confidence += 10 if humidity else 0
+    confidence += 10 if rain or rain_probability else 0
+    confidence += 5 if soil in soil_profiles else 0
+    confidence = min(confidence, 90)
+
+    return {
+        **baseline,
+        "crop": crop,
+        "soil": soil,
+        "stage": stage,
+        "predicted_yield_per_acre": round(predicted_yield, 2),
+        "yield_factor": round(factor, 3),
+        "confidence": confidence,
+        "water_need_mm": round(mm, 2),
+        "water_need_litres_per_acre": round(mm * 4046.856),
+        "water_holding": soil_profiles[soil]["water"],
+        "irrigation_interval": soil_profiles[soil]["interval"],
+        "irrigation_action": irrigation_action,
+        "insights": reasons or ["Prediction is based on crop, soil and management assumptions."],
+        "engine": "Explainable multi-factor farm prediction using crop baseline data, soil suitability, growth stage and available weather signals."
+    }
+
+
 def save_plan_from_result(form, result):
     crop = form.get("crop", "Rice")
     if crop not in CROPS:
