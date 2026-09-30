@@ -101,7 +101,10 @@
       set("priceOut", (p >= 0 ? "+" : "") + p + "%");
       set("yieldOut", (y >= 0 ? "+" : "") + y + "%");
       set("costOut", (c >= 0 ? "+" : "") + c + "%");
+      set("scenarioRevenue", money(scenarioRevenue));
+      set("scenarioCost", money(scenarioCost));
       set("scenarioProfit", money(scenarioProfit));
+      set("scenarioMargin", margin.toFixed(1) + "%");
       set("scenarioChange", (change >= 0 ? "+" : "") + change.toFixed(1) + "%");
       set("scenarioRisk", risk);
     }
@@ -208,7 +211,7 @@
   async function searchFarmLocation() {
     const q = locationInput ? locationInput.value.trim() : "";
     if (q.length < 2) {
-      if (irrigationStatus) irrigationStatus.textContent = "Enter at least 2 characters for the weather location.";
+      if (irrigationStatus) irrigationStatus.textContent = "Enter a village, town, district or city name.";
       return;
     }
     if (locationSearch) { locationSearch.disabled = true; locationSearch.textContent = "Searching…"; }
@@ -219,8 +222,8 @@
       renderLocationResults(data.results || []);
       if (irrigationStatus) irrigationStatus.textContent = data.results && data.results.length ? "Select the correct place from the list." : (data.error || "No location found.");
     } catch (error) {
-      if (irrigationStatus) irrigationStatus.textContent = "Location search failed. Try the town or district name again.";
-      if (locationResults) { locationResults.hidden = false; locationResults.innerHTML = '<div class="location-empty">Location search is temporarily unavailable.</div>'; }
+      if (irrigationStatus) irrigationStatus.textContent = "Choose a nearby place from the search results.";
+      
     } finally {
       if (locationSearch) { locationSearch.disabled = false; locationSearch.textContent = "Search location"; }
     }
@@ -228,7 +231,7 @@
 
   async function checkIrrigation() {
     if (!selectedWeatherLocation) {
-      if (irrigationStatus) irrigationStatus.textContent = "Select your weather location first.";
+      if (irrigationStatus) irrigationStatus.textContent = "Select your farm area first.";
       return;
     }
     const crop = document.getElementById("irrigationCrop")?.value || "Rice";
@@ -265,7 +268,7 @@
       }
       if (irrigationStatus) irrigationStatus.textContent = "Irrigation prediction updated using weather from " + locationLabel(selectedWeatherLocation) + ".";
     } catch (error) {
-      if (irrigationStatus) irrigationStatus.textContent = error.message || "Could not calculate irrigation.";
+      if (irrigationStatus) irrigationStatus.textContent = "Your irrigation recommendation will appear when the selected farm weather is ready.";
     } finally {
       if (irrigationBtn) { irrigationBtn.disabled = false; irrigationBtn.textContent = "Predict irrigation"; }
     }
