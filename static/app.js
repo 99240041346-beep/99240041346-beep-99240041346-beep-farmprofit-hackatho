@@ -192,7 +192,17 @@
     if (selectedLocation) selectedLocation.textContent = "✓ " + locationLabel(place);
     if (locationResults) locationResults.hidden = true;
     localStorage.setItem("agriwise-weather-location", JSON.stringify(place));
-    if (irrigationStatus) irrigationStatus.textContent = "Location selected. Choose soil and crop, then check irrigation.";
+    if (irrigationStatus) irrigationStatus.textContent = "Location selected. Weather and irrigation can now use this farm location.";
+    // On the Weather page, immediately reload the real forecast for the chosen result.
+    if (window.WEATHER_PAGE) {
+      const params = new URLSearchParams({
+        location: locationLabel(place),
+        lat: place.latitude,
+        lon: place.longitude,
+        country: place.country || ""
+      });
+      window.location.href = "/weather?" + params.toString();
+    }
   }
 
   async function searchFarmLocation() {
