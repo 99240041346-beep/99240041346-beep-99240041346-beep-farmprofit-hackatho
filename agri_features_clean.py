@@ -162,6 +162,7 @@ def irrigation(crop,soil,area,stage,weather):
 
 def register_agri_features(app,db):
     class Equipment(db.Model):
+        __tablename__ = "equipment"
         id=db.Column(db.Integer,primary_key=True)
         name=db.Column(db.String(120),nullable=False)
         category=db.Column(db.String(80),nullable=False)
@@ -172,6 +173,7 @@ def register_agri_features(app,db):
         rating=db.Column(db.Float,default=4.5,nullable=False)
 
     class RentalRequest(db.Model):
+        __tablename__ = "rental_request"
         id=db.Column(db.Integer,primary_key=True)
         user_id=db.Column(db.Integer,db.ForeignKey("user.id"),nullable=False)
         equipment_id=db.Column(db.Integer,db.ForeignKey("equipment.id"),nullable=False)
