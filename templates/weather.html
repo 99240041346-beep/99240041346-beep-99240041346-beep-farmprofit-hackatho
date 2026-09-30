@@ -4,7 +4,7 @@
 <section class="page-head"><div><p class="eyebrow">LIVE WEATHER</p><h1>{{ site_text.weather }}</h1><p>Weather is based on your device's current location, not a manually selected farm.</p></div></section>
 <section class="panel location-panel">
   <div class="panel-head"><div><div class="eyebrow">CURRENT LOCATION</div><h2>Use your live location</h2><p id="weatherLocationStatus">{% if error %}{{ error }}{% else %}Getting your current location…{% endif %}</p></div></div>
-  <button class="btn btn-primary" type="button" id="weatherLocateButton">Use my current location</button>
+  <button class="btn btn-primary" type="button" id="weatherLocateButton">Use my current location</button>{% if selected_place %}<a class="btn btn-secondary" href="https://www.google.com/search?q=weather+{{ selected_place.latitude }}%2C{{ selected_place.longitude }}" target="_blank" rel="noopener">Google Weather</a>{% endif %}
 </section>
 {% if weather and weather_condition %}
 <section class="panel weather-now-panel">
