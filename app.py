@@ -509,6 +509,16 @@ def report():
     return render_template("report.html", plans=plans)
 
 
+@app.post("/api/ai-predict")
+@login_required
+def api_ai_predict():
+    data = request.get_json(silent=True) or request.form
+    try:
+        return jsonify(ai_predict(data))
+    except Exception:
+        return jsonify({"error":"AI prediction could not be calculated. Check the farm inputs."}), 400
+
+
 @app.post("/api/calculate")
 @login_required
 def api_calculate():
