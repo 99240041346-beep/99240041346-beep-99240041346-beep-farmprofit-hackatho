@@ -1,3 +1,24 @@
 {% extends 'base.html' %}
-{% block title %}AI Farming Assistant{% endblock %}
-{% block content %}<section class="page-head"><div><p class="eyebrow">FARM AI</p><h1>AI Farming Assistant</h1><p>Ask practical questions about weather, crops, irrigation and equipment.</p></div></section><div class="assistant-grid"><div class="assistant-card"><div class="assistant-avatar">🤖</div><h2>How can I help?</h2><p>Try: “Will rain affect irrigation?” or “I need a tractor for two days.”</p><form method="post"><textarea name="question" placeholder="Ask your farming question..." required>{{ question }}</textarea><button class="btn primary">Get Guidance</button></form></div>{% if answer %}<div class="answer-card"><span class="tag">FARM GUIDANCE</span><h2>Your answer</h2><p>{{ answer }}</p><a class="btn secondary" href="{{ url_for('weather') }}">Open Weather</a> <a class="btn secondary" href="{{ url_for('equipment') }}">Find Equipment</a></div>{% endif %}</div>{% endblock %}
+{% block title %}Agri AI Chatbot{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">AGRI AI</p><h1>AgriWise Farming Chatbot</h1><p>Your farming companion for crops, weather, irrigation, soil, pests, markets and equipment.</p></div></section>
+<section class="panel chatbot-panel">
+  <div class="chatbot-head"><div class="assistant-avatar">🌱</div><div><h2>Ask your farming question</h2><p>Simple guidance for everyday farm decisions.</p></div></div>
+  <div class="chat-messages">{% for message in chat %}<div class="chat-message {{ message.role }}"><div class="chat-bubble">{{ message.text }}</div></div>{% endfor %}</div>
+  <div class="chat-suggestions">
+    <button type="button" data-chat-prompt="What should I do if rain is expected for my crop?">🌧️ Rain advice</button>
+    <button type="button" data-chat-prompt="How should I irrigate tomato on loamy soil?">💧 Irrigation</button>
+    <button type="button" data-chat-prompt="Which crop is suitable for my soil?">🌾 Crop advice</button>
+    <button type="button" data-chat-prompt="How can I control pests safely?">🐛 Pest help</button>
+  </div>
+  <form method="post" class="chat-form" id="agriChatForm"><textarea name="question" id="agriChatInput" rows="2" placeholder="Ask: How much water does my crop need?" required></textarea><button class="btn btn-primary" type="submit">Send</button></form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll("[data-chat-prompt]").forEach(function(button){
+  button.addEventListener("click",function(){var input=document.getElementById("agriChatInput"); input.value=button.dataset.chatPrompt; input.focus();});
+});
+var chat=document.querySelector(".chat-messages"); if(chat) chat.scrollTop=chat.scrollHeight;
+</script>
+{% endblock %}
