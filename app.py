@@ -31,26 +31,29 @@ login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "error"
 
 
+# Planning profiles use common Indian farm units: yield is quintals/acre and
+# market price is INR/quintal. Farmers can replace these starting estimates.
 CROPS = {
     "Rice": {"yield": 22, "price": 2400},
     "Wheat": {"yield": 20, "price": 2300},
     "Maize": {"yield": 25, "price": 2100},
     "Cotton": {"yield": 8, "price": 6500},
-    "Sugarcane": {"yield": 35, "price": 3600},
-    "Tomato": {"yield": 18, "price": 3200},
-    "Potato": {"yield": 24, "price": 1800},
+    "Sugarcane": {"yield": 350, "price": 360},
+    "Tomato": {"yield": 180, "price": 3200},
+    "Potato": {"yield": 240, "price": 1800},
     "Groundnut": {"yield": 10, "price": 6200},
 }
 
+# Production costs are per acre so the model scales correctly with farm size.
 COST_FIELDS = [
-    ("seed", "Seed", 9000),
-    ("fertilizer", "Fertilizer", 15000),
-    ("pesticide", "Pesticide", 6000),
-    ("labor", "Labor", 13000),
-    ("machinery", "Machinery", 7000),
-    ("irrigation", "Irrigation", 5000),
-    ("transport", "Transport", 4000),
-    ("other", "Other", 2500),
+    ("seed", "Seed", 3000),
+    ("fertilizer", "Fertilizer", 5000),
+    ("pesticide", "Pesticide", 2500),
+    ("labor", "Labour", 6000),
+    ("machinery", "Machinery", 3000),
+    ("irrigation", "Irrigation", 2000),
+    ("transport", "Transport", 1800),
+    ("other", "Other", 1000),
 ]
 
 
@@ -107,10 +110,11 @@ def calculate(data):
     yield_per_acre = nfloat(data.get("yield_per_acre"), 22.0)
     price = nfloat(data.get("price"), 2400.0)
 
-    costs = {key: nfloat(data.get(key), default) for key, _, default in COST_FIELDS}
+    # Costs are entered per acre; production and revenue scale with land area.
+    costs_per_acre = {key: nfloat(data.get(key), default) for key, _, default in COST_FIELDS}
     production = area * yield_per_acre
     revenue = production * price
-    total_cost = sum(costs.values())
+    total_cost = sum(costs_per_acre.values()) * area
     profit = revenue - total_cost
     roi = (profit / total_cost * 100) if total_cost else 0.0
     margin = (profit / revenue * 100) if revenue else 0.0
@@ -124,6 +128,7 @@ def calculate(data):
 
     break_even_price = total_cost / production if production else 0.0
     break_even_yield = total_cost / price / area if price and area else 0.0
+    cost_per_acre = total_cost / area if area else 0.0
 
     return {
         "area": area,
@@ -138,7 +143,9 @@ def calculate(data):
         "risk": risk,
         "break_even_price": break_even_price,
         "break_even_yield": break_even_yield,
-        **costs,
+        "cost_per_acre": cost_per_acre,
+        "revenue_per_acre": revenue / area if area else 0.0,
+        **costs_per_acre,
     }
 
 
@@ -301,14 +308,14 @@ def compare():
             "area": 5,
             "yield_per_acre": crop["yield"],
             "price": crop["price"],
-            "seed": 9000,
-            "fertilizer": 15000,
-            "pesticide": 6000,
-            "labor": 13000,
-            "machinery": 7000,
-            "irrigation": 5000,
-            "transport": 4000,
-            "other": 2500,
+            "seed": 3000,
+            "fertilizer": 5000,
+            "pesticide": 2500,
+            "labor": 6000,
+            "machinery": 3000,
+            "irrigation": 2000,
+            "transport": 1800,
+            "other": 1000,
         }
         result = calculate(demo)
         result["crop"] = crop_name
