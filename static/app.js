@@ -151,15 +151,15 @@
       ctx.fillText(d.crop, x + barW / 2, height - 10);
     });
   }
-  // Manual farm location + soil-aware irrigation
-  const locationInput = document.getElementById("farmLocationInput");
-  const locationSearch = document.getElementById("farmLocationSearch");
+  // Manual weather location + soil-aware irrigation
+  const locationInput = document.getElementById("weatherLocationInput");
+  const locationSearch = document.getElementById("weatherLocationSearch");
   const locationResults = document.getElementById("locationResults");
-  const selectedLocation = document.getElementById("selectedFarmLocation");
+  const selectedLocation = document.getElementById("selectedWeatherLocation");
   const irrigationBtn = document.getElementById("checkIrrigation");
   const irrigationStatus = document.getElementById("irrigationStatus");
   const irrigationResult = document.getElementById("irrigationResult");
-  let selectedFarm = null;
+  let selectedWeatherLocation = null;
 
   function locationLabel(place) {
     return [place.name, place.admin2 || place.admin1, place.country].filter(Boolean).join(", ");
@@ -187,18 +187,18 @@
   }
 
   function selectFarmLocation(place) {
-    selectedFarm = place;
+    selectedWeatherLocation = place;
     if (locationInput) locationInput.value = locationLabel(place);
     if (selectedLocation) selectedLocation.textContent = "✓ " + locationLabel(place);
     if (locationResults) locationResults.hidden = true;
-    localStorage.setItem("agriwise-farm-location", JSON.stringify(place));
+    localStorage.setItem("agriwise-weather-location", JSON.stringify(place));
     if (irrigationStatus) irrigationStatus.textContent = "Location selected. Choose soil and crop, then check irrigation.";
   }
 
   async function searchFarmLocation() {
     const q = locationInput ? locationInput.value.trim() : "";
     if (q.length < 2) {
-      if (irrigationStatus) irrigationStatus.textContent = "Enter at least 2 characters for the farm location.";
+      if (irrigationStatus) irrigationStatus.textContent = "Enter at least 2 characters for the weather location.";
       return;
     }
     if (locationSearch) { locationSearch.disabled = true; locationSearch.textContent = "Searching…"; }
@@ -217,8 +217,8 @@
   }
 
   async function checkIrrigation() {
-    if (!selectedFarm) {
-      if (irrigationStatus) irrigationStatus.textContent = "Select your farm location first.";
+    if (!selectedWeatherLocation) {
+      if (irrigationStatus) irrigationStatus.textContent = "Select your weather location first.";
       return;
     }
     const crop = document.getElementById("irrigationCrop")?.value || "Rice";
@@ -228,8 +228,8 @@
     if (irrigationStatus) irrigationStatus.textContent = "Combining forecast, crop and soil characteristics…";
     try {
       const params = new URLSearchParams({
-        lat: selectedFarm.latitude, lon: selectedFarm.longitude,
-        name: selectedFarm.name || "Selected farm", crop, soil, area
+        lat: selectedWeatherLocation.latitude, lon: selectedWeatherLocation.longitude,
+        name: selectedWeatherLocation.name || "Selected farm", crop, soil, area
       });
       const response = await fetch("/api/irrigation?" + params.toString());
       const data = await response.json();
@@ -253,11 +253,11 @@
           <div class="irrigation-method"><strong>Recommended method:</strong> ${a.irrigation_method} · <strong>Typical interval:</strong> ${a.typical_interval}</div>
           <div class="irrigation-disclaimer">${a.method} Adjust using field soil moisture, crop growth stage and local agronomist guidance.</div>`;
       }
-      if (irrigationStatus) irrigationStatus.textContent = "Irrigation plan updated for " + locationLabel(selectedFarm) + ".";
+      if (irrigationStatus) irrigationStatus.textContent = "Irrigation prediction updated using weather from " + locationLabel(selectedWeatherLocation) + ".";
     } catch (error) {
       if (irrigationStatus) irrigationStatus.textContent = error.message || "Could not calculate irrigation.";
     } finally {
-      if (irrigationBtn) { irrigationBtn.disabled = false; irrigationBtn.textContent = "Check irrigation"; }
+      if (irrigationBtn) { irrigationBtn.disabled = false; irrigationBtn.textContent = "Predict irrigation"; }
     }
   }
 
@@ -268,7 +268,7 @@
   if (irrigationBtn) irrigationBtn.addEventListener("click", checkIrrigation);
 
   try {
-    const saved = JSON.parse(localStorage.getItem("agriwise-farm-location") || "null");
+    const saved = JSON.parse(localStorage.getItem("agriwise-weather-location") || "null");
     if (saved && saved.latitude && saved.longitude) selectFarmLocation(saved);
   } catch (_) {}
 
