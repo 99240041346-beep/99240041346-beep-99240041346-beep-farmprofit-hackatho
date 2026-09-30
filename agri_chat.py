@@ -80,15 +80,21 @@ KEYWORDS = {
 }
 
 def _entities(question, history=None):
-    current = (question or "").lower()\n    previous = " ".join([str(x.get("text","")) for x in (history or []) if isinstance(x, dict) and x.get("role") == "user"]).lower()\n    text = current + " " + previous
+    """Extract entities from the current question first, then recent user messages only."""
+    current = (question or "").lower()
+    previous = " ".join(
+        str(x.get("text", ""))
+        for x in (history or [])
+        if isinstance(x, dict) and x.get("role") == "user"
+    ).lower()
+    text = current + " " + previous
     crops = ["tomato","rice","wheat","maize","cotton","sugarcane","potato","groundnut"]
-    soils = ["black soil","black","loamy","loam","clay","sandy","sandy loam","silty","red soil","red"]
+    soils = ["black soil","black","loamy","loam","clay","sandy loam","sandy","silty","red soil","red"]
     stages = ["establishment","vegetative","flowering","fruiting","grain","bulking","maturity"]
     crop = next((x for x in crops if x in text), None)
     soil = next((x for x in soils if x in text), None)
     stage = next((x for x in stages if x in text), None)
     return crop, soil, stage
-
 def classify(question):
     q=(question or "").lower()
     for topic, words in KEYWORDS.items():
