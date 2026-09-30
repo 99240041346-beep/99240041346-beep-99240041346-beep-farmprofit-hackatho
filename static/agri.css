@@ -32,3 +32,9 @@
 .irrigation-disclaimer{margin-top:7px;font-size:8px;color:#8a938c;line-height:1.5}
 @media(max-width:900px){.irrigation-stats{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.location-search-row{grid-template-columns:1fr}.irrigation-main{flex-direction:column}.water-number{text-align:left}.irrigation-stats{grid-template-columns:repeat(2,1fr)}}
+
+.day-summary{margin:0 0 10px;padding:15px 17px;border:1px solid #dfe7dc;border-radius:12px;background:linear-gradient(135deg,#f4f9f1,#fff);display:flex;justify-content:space-between;gap:16px;align-items:center}
+.day-summary h2{margin:5px 0 4px;font-size:20px}
+.day-summary p{margin:0;color:#68756b;font-size:10px;line-height:1.5}
+.day-summary>strong{padding:8px 11px;border-radius:999px;background:#e7f2e4;color:#2f7d32;font-size:9px;white-space:nowrap}
+@media(max-width:600px){.day-summary{align-items:flex-start;flex-direction:column}.day-summary>strong{white-space:normal}}
